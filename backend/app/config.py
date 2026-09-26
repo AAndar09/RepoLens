@@ -22,6 +22,16 @@ class Settings(BaseSettings):
     ingestion_max_file_bytes: int = Field(default=1_000_000, ge=1)
     ingestion_max_clone_bytes: int = Field(default=250_000_000, ge=1)
     ingestion_clone_timeout_seconds: int = Field(default=120, ge=1)
+    qdrant_url: str = "http://localhost:6333"
+    qdrant_api_key: str | None = None
+    qdrant_collection: str = "repolens_code_units"
+    embedding_provider: str = "hashing"
+    embedding_dimensions: int = Field(default=384, ge=16, le=4_096)
+    embedding_batch_size: int = Field(default=32, ge=1, le=256)
+    retrieval_max_unit_chars: int = Field(default=12_000, ge=256)
+    retrieval_max_units_per_snapshot: int = Field(default=20_000, ge=1)
+    retrieval_lexical_candidate_limit: int = Field(default=5_000, ge=1)
+    retrieval_hybrid_rrf_k: int = Field(default=60, ge=1)
 
     model_config = SettingsConfigDict(
         env_prefix="REPOLENS_",

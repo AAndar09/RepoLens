@@ -20,6 +20,7 @@ from app.database import Base
 
 if TYPE_CHECKING:
     from app.models.repository import Repository
+    from app.models.retrieval import SnapshotRetrievalIndex
     from app.models.source_file import SourceFile
 
 
@@ -65,4 +66,9 @@ class RepositorySnapshot(Base):
         back_populates="snapshot",
         cascade="all, delete-orphan",
         order_by="SourceFile.path",
+    )
+    retrieval_index: Mapped["SnapshotRetrievalIndex | None"] = relationship(
+        back_populates="snapshot",
+        cascade="all, delete-orphan",
+        uselist=False,
     )
