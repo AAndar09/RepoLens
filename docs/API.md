@@ -1,4 +1,4 @@
-# Phase 4 API
+# Phase 5 API
 
 The API is rooted at `/api/v1`. Generated OpenAPI is available at `/openapi.json` and interactive documentation at `/docs`.
 
@@ -83,3 +83,21 @@ Module IDs are source-file IDs. Import results always include resolution status,
 candidate paths, a human-readable reason, source line range, and an optional resolved target.
 Importers contain only uniquely resolved internal module relationships. All IDs are validated
 against the repository snapshot in the route.
+
+## Investigations
+
+`POST /api/v1/repositories/{repository_id}/snapshots/{snapshot_id}/investigations` runs one bounded
+investigation against a ready snapshot:
+
+```json
+{"question":"How is the greeting implemented and which module contains it?"}
+```
+
+The response contains the validated plan, grounded answer, commit-pinned citations, observable tool
+trace, number of investigation rounds, and termination reason (`completed`, `max_steps`, or
+`no_more_tools`). A failed tool is represented in the trace while other calls continue. Invalid
+model output or unavailable Ollama returns `502`; a non-ready snapshot returns `409`.
+
+The default provider is Ollama at `REPOLENS_OLLAMA_URL`, using `REPOLENS_OLLAMA_MODEL`. Retrieval
+must already be indexed for `search_code`; otherwise that tool fails transparently and the model may
+continue with symbol, source, graph, or metadata tools.

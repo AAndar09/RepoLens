@@ -1,6 +1,6 @@
 # Architecture
 
-## Phase 4 system context
+## Phase 5 system context
 
 RepoLens is a React application backed by FastAPI. PostgreSQL is the durable authority for
 repositories, immutable snapshots, extracted Python intelligence, retrieval units, and index
@@ -53,6 +53,28 @@ uses reciprocal-rank fusion. This dual relational/vector scope prevents evidence
 boundaries. Evidence has path, precise stored line range, symbol metadata, component scores, and a
 GitHub link pinned to the immutable indexed commit.
 
+## Investigation agent
+
+The first investigation workflow is a compiled LangGraph state graph:
+
+```text
+plan -> execute controlled tools -> evaluate evidence --insufficient--> execute tools
+                                      |
+                                      +--sufficient/terminated--> synthesize
+```
+
+The model provider is abstracted behind planning, sufficiency, and synthesis contracts. The default
+adapter calls a host Ollama instance and requires JSON-schema-constrained responses validated with
+Pydantic. Planning can select only `search_code`, `lookup_symbol`, `read_source`,
+`structural_lookup`, and `repository_metadata`. These wrappers reuse hybrid retrieval and structural
+graph services and carry snapshot context internally; the model never receives shell, filesystem,
+database, Qdrant, or infrastructure credentials.
+
+Every tool call produces a success/error trace. Source evidence receives a stable ID and immutable
+commit URL. Synthesis may cite only returned citable evidence IDs. The workflow enforces configured
+limits for investigation rounds, calls per round, evidence items, and source lines, plus an
+independent LangGraph recursion limit. A tool failure does not terminate other calls.
+
 ## Boundaries and configuration
 
 - `app/api`: versioned HTTP contract.
@@ -60,11 +82,12 @@ GitHub link pinned to the immutable indexed commit.
 - `app/analysis`: deterministic Python AST analysis.
 - `app/retrieval`: units, embeddings, lexical/hybrid strategy, and Qdrant adapter.
 - `app/graph`: deterministic import resolution and bounded structural traversal.
+- `app/agent`: model abstraction, controlled tools, and LangGraph investigation workflow.
 - `app/models` and `migrations`: relational schema authority.
 
-All runtime settings use `REPOLENS_`. `.env.example` documents ingestion limits, Qdrant endpoint,
-embedding provider/dimensions, retrieval limits, and structural source roots. The Compose backend
-points at `qdrant:6333`; native development defaults to `localhost:6333`.
+All runtime settings use `REPOLENS_`. `.env.example` documents ingestion and retrieval limits,
+structural source roots, agent safeguards, and Ollama configuration. Compose connects the backend
+to Qdrant and permits access to a host Ollama instance through `host.docker.internal`.
 
-Background jobs, private repositories, non-Python code, learned/remote embedding providers,
-vulnerability analysis, LangGraph/Laya, and autonomous agents remain out of scope.
+Background jobs, private repositories, non-Python code, conversation memory, Laya routing,
+vulnerability analysis, and unrestricted agent tools remain out of scope.
