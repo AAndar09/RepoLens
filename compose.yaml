@@ -1,0 +1,76 @@
+name: repolens
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-repolens}
+      POSTGRES_USER: ${POSTGRES_USER:-repolens}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me-for-non-local-use}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-repolens} -d ${POSTGRES_DB:-repolens}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  qdrant:
+    image: qdrant/qdrant:v1.14.1
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - qdrant_data:/qdrant/storage
+
+  backend:
+    build:
+      context: ./backend
+    environment:
+      REPOLENS_DATABASE_URL: ${REPOLENS_DATABASE_URL:-postgresql+psycopg://repolens:change-me-for-non-local-use@postgres:5432/repolens}
+      REPOLENS_CORS_ORIGINS: ${REPOLENS_CORS_ORIGINS:-http://localhost:5173}
+      REPOLENS_INGESTION_INCLUDE_GLOBS: ${REPOLENS_INGESTION_INCLUDE_GLOBS:-*.py}
+      REPOLENS_INGESTION_EXCLUDE_GLOBS: ${REPOLENS_INGESTION_EXCLUDE_GLOBS:-}
+      REPOLENS_INGESTION_EXCLUDE_DIRECTORIES: ${REPOLENS_INGESTION_EXCLUDE_DIRECTORIES:-.git,.hg,.svn,.venv,venv,node_modules,__pycache__,build,dist,.tox,.nox}
+      REPOLENS_INGESTION_MAX_FILES: ${REPOLENS_INGESTION_MAX_FILES:-2500}
+      REPOLENS_INGESTION_MAX_TOTAL_BYTES: ${REPOLENS_INGESTION_MAX_TOTAL_BYTES:-25000000}
+      REPOLENS_INGESTION_MAX_FILE_BYTES: ${REPOLENS_INGESTION_MAX_FILE_BYTES:-1000000}
+      REPOLENS_INGESTION_MAX_CLONE_BYTES: ${REPOLENS_INGESTION_MAX_CLONE_BYTES:-250000000}
+      REPOLENS_INGESTION_CLONE_TIMEOUT_SECONDS: ${REPOLENS_INGESTION_CLONE_TIMEOUT_SECONDS:-120}
+    command: sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      qdrant:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  frontend:
+    build:
+      context: ./frontend
+      target: development
+    environment:
+      VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8000/api/v1}
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+      - frontend_node_modules:/app/node_modules
+    depends_on:
+      backend:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+  qdrant_data:
+  frontend_node_modules:
