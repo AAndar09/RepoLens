@@ -1,4 +1,4 @@
-# Phase 5 API
+# Phase 6 API
 
 The API is rooted at `/api/v1`. Generated OpenAPI is available at `/openapi.json` and interactive documentation at `/docs`.
 
@@ -101,3 +101,13 @@ model output or unavailable Ollama returns `502`; a non-ready snapshot returns `
 The default provider is Ollama at `REPOLENS_OLLAMA_URL`, using `REPOLENS_OLLAMA_MODEL`. Retrieval
 must already be indexed for `search_code`; otherwise that tool fails transparently and the model may
 continue with symbol, source, graph, or metadata tools.
+
+## Routed queries
+
+`POST /api/v1/repositories/{repository_id}/snapshots/{snapshot_id}/queries` classifies a question with local Laya before using existing controlled capabilities:
+
+```json
+{"question":"What commit was indexed?"}
+```
+
+The response includes `routing` (`category`, `strategy`, `confidence`, `fallback_applied`, and `rationale`), answer, citations, and tool trace. Simple metadata, symbol, and retrieval queries may avoid the investigation model. Dependency/security/uncertain queries use the bounded investigator; low-confidence or unavailable Laya classification explicitly falls back there.

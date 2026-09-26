@@ -225,9 +225,7 @@ def get_file(
     return source_file
 
 
-@router.get(
-    "/{repository_id}/snapshots/{snapshot_id}/symbols", response_model=list[SymbolResponse]
-)
+@router.get("/{repository_id}/snapshots/{snapshot_id}/symbols", response_model=list[SymbolResponse])
 def list_symbols(
     repository_id: uuid.UUID,
     snapshot_id: uuid.UUID,
@@ -266,9 +264,7 @@ def list_symbols(
     ]
 
 
-@router.get(
-    "/{repository_id}/snapshots/{snapshot_id}/imports", response_model=list[ImportResponse]
-)
+@router.get("/{repository_id}/snapshots/{snapshot_id}/imports", response_model=list[ImportResponse])
 def list_imports(
     repository_id: uuid.UUID,
     snapshot_id: uuid.UUID,

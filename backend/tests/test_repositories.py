@@ -38,4 +38,3 @@ def test_non_github_or_non_repository_urls_are_rejected(client: TestClient) -> N
     for github_url in invalid_urls:
         response = client.post("/api/v1/repositories", json={"github_url": github_url})
         assert response.status_code == 422, github_url
-

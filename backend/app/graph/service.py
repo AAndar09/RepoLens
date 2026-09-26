@@ -63,16 +63,12 @@ class StructuralGraphService:
             base = [*base, *source_import.module.split(".")]
         return ".".join(base)
 
-    def _requested_module(
-        self, source_file: SourceFile, source_import: SourceImport
-    ) -> str | None:
+    def _requested_module(self, source_file: SourceFile, source_import: SourceImport) -> str | None:
         if source_import.level:
             return self._relative_module(source_file, source_import)
         return source_import.module
 
-    def build(
-        self, snapshot: RepositorySnapshot, *, commit: bool = True
-    ) -> GraphSummary:
+    def build(self, snapshot: RepositorySnapshot, *, commit: bool = True) -> GraphSummary:
         files = list(
             self.session.scalars(
                 select(SourceFile)
@@ -86,9 +82,7 @@ class StructuralGraphService:
                 aliases[alias].append(source_file)
 
         self.session.execute(
-            delete(ModuleImportResolution).where(
-                ModuleImportResolution.snapshot_id == snapshot.id
-            )
+            delete(ModuleImportResolution).where(ModuleImportResolution.snapshot_id == snapshot.id)
         )
         for source_file in files:
             for source_import in sorted(
@@ -102,9 +96,7 @@ class StructuralGraphService:
                     and source_import.imported_name
                     and source_import.imported_name != "*"
                 ):
-                    candidates = list(
-                        aliases.get(f"{requested}.{source_import.imported_name}", [])
-                    )
+                    candidates = list(aliases.get(f"{requested}.{source_import.imported_name}", []))
                 candidate_paths = sorted(item.path for item in candidates)
                 if requested is None:
                     status = ImportResolutionStatus.UNRESOLVED
@@ -141,23 +133,32 @@ class StructuralGraphService:
         return self.summary(snapshot)
 
     def summary(self, snapshot: RepositorySnapshot) -> GraphSummary:
-        module_count = self.session.scalar(
-            select(func.count())
-            .select_from(SourceFile)
-            .where(SourceFile.snapshot_id == snapshot.id)
-        ) or 0
-        symbol_count = self.session.scalar(
-            select(func.count())
-            .select_from(CodeSymbol)
-            .join(SourceFile, SourceFile.id == CodeSymbol.source_file_id)
-            .where(SourceFile.snapshot_id == snapshot.id)
-        ) or 0
-        import_count = self.session.scalar(
-            select(func.count())
-            .select_from(SourceImport)
-            .join(SourceFile, SourceFile.id == SourceImport.source_file_id)
-            .where(SourceFile.snapshot_id == snapshot.id)
-        ) or 0
+        module_count = (
+            self.session.scalar(
+                select(func.count())
+                .select_from(SourceFile)
+                .where(SourceFile.snapshot_id == snapshot.id)
+            )
+            or 0
+        )
+        symbol_count = (
+            self.session.scalar(
+                select(func.count())
+                .select_from(CodeSymbol)
+                .join(SourceFile, SourceFile.id == CodeSymbol.source_file_id)
+                .where(SourceFile.snapshot_id == snapshot.id)
+            )
+            or 0
+        )
+        import_count = (
+            self.session.scalar(
+                select(func.count())
+                .select_from(SourceImport)
+                .join(SourceFile, SourceFile.id == SourceImport.source_file_id)
+                .where(SourceFile.snapshot_id == snapshot.id)
+            )
+            or 0
+        )
         status_counts = dict(
             self.session.execute(
                 select(ModuleImportResolution.status, func.count())
@@ -236,9 +237,7 @@ class StructuralGraphService:
             )
         )
 
-    def symbol_containment(
-        self, snapshot_id: uuid.UUID, symbol_id: uuid.UUID
-    ) -> SymbolContainment:
+    def symbol_containment(self, snapshot_id: uuid.UUID, symbol_id: uuid.UUID) -> SymbolContainment:
         row = self.session.execute(
             select(CodeSymbol, SourceFile)
             .join(SourceFile, SourceFile.id == CodeSymbol.source_file_id)

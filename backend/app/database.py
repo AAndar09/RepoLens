@@ -22,4 +22,3 @@ def get_session() -> Generator[Session]:
     session_factory = sessionmaker(bind=get_engine(), expire_on_commit=False)
     with session_factory() as session:
         yield session
-

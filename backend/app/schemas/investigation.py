@@ -117,3 +117,19 @@ class InvestigationResponse(StrictModel):
     tool_trace: list[ToolTraceResponse]
     steps_taken: int
     termination_reason: TerminationReason
+
+
+class RoutedQueryRequest(StrictModel):
+    question: str = Field(min_length=3, max_length=2_000)
+
+
+class RoutedQueryResponse(StrictModel):
+    repository_id: uuid.UUID
+    snapshot_id: uuid.UUID
+    commit_sha: str
+    question: str
+    routing: dict[str, object]
+    answer: str
+    citations: list[CitationResponse] = Field(default_factory=list)
+    tool_trace: list[ToolTraceResponse] = Field(default_factory=list)
+    investigation: InvestigationResponse | None = None

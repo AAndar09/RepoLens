@@ -230,9 +230,9 @@ class RepositoryIngestionService:
             self.session.add(source_file)
 
         self.session.flush()
-        StructuralGraphService(
-            self.session, self.settings.graph_source_root_names
-        ).build(snapshot, commit=False)
+        StructuralGraphService(self.session, self.settings.graph_source_root_names).build(
+            snapshot, commit=False
+        )
 
         snapshot.status = SnapshotStatus.READY
         snapshot.error_message = None

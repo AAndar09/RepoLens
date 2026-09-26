@@ -40,9 +40,7 @@ class EvidenceRecord(BaseModel):
 
     def prompt_value(self) -> dict[str, object]:
         value = self.model_dump(mode="json", exclude={"citation"})
-        value["citation"] = (
-            self.citation.model_dump(mode="json") if self.citation else None
-        )
+        value["citation"] = self.citation.model_dump(mode="json") if self.citation else None
         return value
 
 
@@ -204,9 +202,7 @@ class InvestigationAgent:
             self.tools.repository_context(),
             [item.prompt_value() for item in evidence],
         )
-        citations = {
-            item.id: item.citation for item in evidence if item.citation is not None
-        }
+        citations = {item.id: item.citation for item in evidence if item.citation is not None}
         unknown_ids = [item for item in draft.citation_ids if item not in citations]
         if unknown_ids:
             raise AgentOutputValidationError(

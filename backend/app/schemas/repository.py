@@ -35,8 +35,10 @@ class RepositorySubmission(BaseModel):
         owner, name = parts
         if name.endswith(".git"):
             name = name[:-4]
-        if not owner or not name or not all(
-            GITHUB_COMPONENT_PATTERN.fullmatch(component) for component in (owner, name)
+        if (
+            not owner
+            or not name
+            or not all(GITHUB_COMPONENT_PATTERN.fullmatch(component) for component in (owner, name))
         ):
             raise ValueError("repository owner and name contain invalid characters")
 
@@ -54,4 +56,3 @@ class RepositoryResponse(BaseModel):
     ingestion_error: str | None
     created_at: datetime
     updated_at: datetime
-

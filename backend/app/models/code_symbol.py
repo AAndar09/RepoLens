@@ -53,4 +53,3 @@ class CodeSymbol(Base):
         cascade="all, delete-orphan",
         single_parent=True,
     )
-

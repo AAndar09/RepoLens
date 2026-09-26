@@ -391,13 +391,9 @@ class HybridRetriever:
         lexical_scores = {unit.id: score for unit, score in lexical}
         semantic_scores = {unit.id: score for unit, score in semantic}
         if mode == "lexical":
-            return [
-                RetrievalResult(unit, None, score, None) for unit, score in lexical[:limit]
-            ]
+            return [RetrievalResult(unit, None, score, None) for unit, score in lexical[:limit]]
         if mode == "semantic":
-            return [
-                RetrievalResult(unit, score, None, None) for unit, score in semantic[:limit]
-            ]
+            return [RetrievalResult(unit, score, None, None) for unit, score in semantic[:limit]]
 
         lexical_ranks = {unit.id: rank for rank, (unit, _) in enumerate(lexical, start=1)}
         semantic_ranks = {unit.id: rank for rank, (unit, _) in enumerate(semantic, start=1)}

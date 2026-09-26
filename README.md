@@ -19,7 +19,7 @@ Open the [frontend](http://localhost:5173), [API docs](http://localhost:8000/doc
 
 Investigations use a local Ollama model by default. Install Ollama on the host and run
 `ollama pull qwen2.5-coder:7b`, then call the snapshot investigation endpoint in the API docs.
-The agent is API-only in this phase; the frontend still exposes submission and ingestion.
+The agent and routed-query APIs are available through API docs; the frontend still exposes submission and ingestion. Laya is installed with the backend and lazily downloads/loads its local routing model on the first routed query.
 
 Stop with `docker compose down`. Use `--volumes` only to intentionally erase local PostgreSQL and
 Qdrant data.

@@ -131,9 +131,7 @@ def analyze_python(source: str, path: str) -> PythonAnalysis:
         tree = ast.parse(source, filename=path, type_comments=True)
     except (SyntaxError, ValueError) as exc:
         location = (
-            f"line {exc.lineno}"
-            if isinstance(exc, SyntaxError) and exc.lineno
-            else "unknown line"
+            f"line {exc.lineno}" if isinstance(exc, SyntaxError) and exc.lineno else "unknown line"
         )
         detail = exc.msg if isinstance(exc, SyntaxError) else str(exc)
         return PythonAnalysis(

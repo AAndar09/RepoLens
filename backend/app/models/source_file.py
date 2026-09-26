@@ -50,4 +50,3 @@ class SourceFile(Base):
         back_populates="source_file",
         cascade="all, delete-orphan",
     )
-
