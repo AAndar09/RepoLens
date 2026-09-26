@@ -1,4 +1,4 @@
-# Phase 6 API
+# Phase 7 API
 
 The API is rooted at `/api/v1`. Generated OpenAPI is available at `/openapi.json` and interactive documentation at `/docs`.
 
@@ -111,3 +111,11 @@ continue with symbol, source, graph, or metadata tools.
 ```
 
 The response includes `routing` (`category`, `strategy`, `confidence`, `fallback_applied`, and `rationale`), answer, citations, and tool trace. Simple metadata, symbol, and retrieval queries may avoid the investigation model. Dependency/security/uncertain queries use the bounded investigator; low-confidence or unavailable Laya classification explicitly falls back there.
+
+## Dependencies and vulnerabilities
+
+- `GET /api/v1/repositories/{repository_id}/snapshots/{snapshot_id}/dependencies` returns manifest-derived inventory and provenance. `version_resolved=false` means the declaration was not one exact pin and therefore was not queried as an installed version.
+- `POST /api/v1/repositories/{repository_id}/snapshots/{snapshot_id}/vulnerability-scan` queries OSV for exact versions. Add `?refresh=true` to bypass successful cached checks.
+- `GET /api/v1/repositories/{repository_id}/snapshots/{snapshot_id}/vulnerabilities` returns persisted OSV findings with package version, OSV ID, aliases, severity, affected data, references, source URL, and query time.
+
+OSV failures are recorded per dependency and do not erase older findings. A returned vulnerability is a public-source package/version match, not a claim that the application is reachable or exploitable.

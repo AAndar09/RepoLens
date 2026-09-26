@@ -1,13 +1,17 @@
 from dataclasses import dataclass
 from urllib.parse import quote
 
+from packaging.utils import canonicalize_name
 from pydantic import BaseModel, ValidationError
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from app.config import Settings
+from app.dependencies.osv import OsvClient, VulnerabilityProvider
+from app.dependencies.service import VulnerabilityIntelligenceService
 from app.graph.service import StructuralGraphService
 from app.models.code_symbol import CodeSymbol
+from app.models.dependency import DependencyVulnerability, SnapshotDependency
 from app.models.repository import Repository
 from app.models.snapshot import RepositorySnapshot
 from app.models.source_file import SourceFile
@@ -15,7 +19,9 @@ from app.retrieval.embeddings import EmbeddingProvider
 from app.retrieval.service import HybridRetriever, RetrievalFilters
 from app.retrieval.vector_store import VectorStore
 from app.schemas.investigation import (
+    CheckVulnerabilitiesArguments,
     CitationResponse,
+    ListDependenciesArguments,
     LookupSymbolArguments,
     ReadSourceArguments,
     RepositoryMetadataArguments,
@@ -56,6 +62,8 @@ ARGUMENT_TYPES: dict[ToolName, type[BaseModel]] = {
     "read_source": ReadSourceArguments,
     "structural_lookup": StructuralLookupArguments,
     "repository_metadata": RepositoryMetadataArguments,
+    "list_dependencies": ListDependenciesArguments,
+    "check_vulnerabilities": CheckVulnerabilitiesArguments,
 }
 
 
@@ -66,6 +74,13 @@ def tool_catalog() -> dict[str, object]:
         "read_source": "Read a bounded line range from one indexed source file.",
         "structural_lookup": "Inspect module imports/importers/symbols or symbol containment.",
         "repository_metadata": "Read repository, snapshot, ingestion, and graph counts.",
+        "list_dependencies": (
+            "Read manifest-derived Python dependencies and exact-version provenance."
+        ),
+        "check_vulnerabilities": (
+            "Query/cache OSV facts for exact dependency versions; findings do not prove "
+            "exploitability."
+        ),
     }
     return {
         name: {
@@ -85,6 +100,7 @@ class ControlledToolset:
         snapshot: RepositorySnapshot,
         vector_store: VectorStore,
         embedding_provider: EmbeddingProvider,
+        vulnerability_provider: VulnerabilityProvider | None = None,
     ) -> None:
         self.session = session
         self.settings = settings
@@ -92,6 +108,7 @@ class ControlledToolset:
         self.snapshot = snapshot
         self.vector_store = vector_store
         self.embedding_provider = embedding_provider
+        self.vulnerability_provider = vulnerability_provider or OsvClient(settings)
         self.graph = StructuralGraphService(session, settings.graph_source_root_names)
 
     def repository_context(self) -> dict[str, object]:
@@ -143,6 +160,8 @@ class ControlledToolset:
             "read_source": self._read_source,
             "structural_lookup": self._structural_lookup,
             "repository_metadata": self._repository_metadata,
+            "list_dependencies": self._list_dependencies,
+            "check_vulnerabilities": self._check_vulnerabilities,
         }
         return handlers[request.tool](arguments)
 
@@ -382,3 +401,103 @@ class ControlledToolset:
             },
         )
         return ToolExecution(summary="Loaded repository snapshot metadata", evidence=(evidence,))
+
+    def _list_dependencies(self, raw_arguments: BaseModel) -> ToolExecution:
+        arguments = ListDependenciesArguments.model_validate(raw_arguments)
+        query = select(SnapshotDependency).where(SnapshotDependency.snapshot_id == self.snapshot.id)
+        if arguments.package:
+            normalized = canonicalize_name(arguments.package)
+            query = query.where(SnapshotDependency.normalized_name == normalized)
+        if arguments.resolved_only:
+            query = query.where(SnapshotDependency.version_resolved.is_(True))
+        dependencies = list(
+            self.session.scalars(
+                query.order_by(SnapshotDependency.normalized_name).limit(arguments.limit)
+            )
+        )
+        evidence = tuple(self._dependency_evidence(item) for item in dependencies)
+        return ToolExecution(
+            summary=f"Found {len(evidence)} manifest dependency declarations",
+            evidence=evidence,
+        )
+
+    def _check_vulnerabilities(self, raw_arguments: BaseModel) -> ToolExecution:
+        arguments = CheckVulnerabilitiesArguments.model_validate(raw_arguments)
+        dependencies = VulnerabilityIntelligenceService(
+            self.session, self.vulnerability_provider
+        ).scan(
+            self.snapshot,
+            refresh=arguments.refresh,
+            package=arguments.package,
+        )
+        evidence: list[EvidenceCandidate] = []
+        for dependency in dependencies:
+            if not dependency.version_resolved:
+                evidence.append(self._dependency_evidence(dependency))
+                continue
+            for finding in dependency.vulnerabilities[: arguments.limit - len(evidence)]:
+                evidence.append(self._vulnerability_evidence(dependency, finding))
+            if len(evidence) >= arguments.limit:
+                break
+        return ToolExecution(
+            summary=(
+                f"Loaded {len(evidence)} dependency/OSV evidence items; "
+                "an OSV match is not proof the application is exploitable"
+            ),
+            evidence=tuple(evidence),
+        )
+
+    @staticmethod
+    def _dependency_evidence(dependency: SnapshotDependency) -> EvidenceCandidate:
+        return EvidenceCandidate(
+            title=f"Dependency {dependency.name}",
+            filepath=dependency.source_path,
+            start_line=dependency.source_line or 1,
+            end_line=dependency.source_line or 1,
+            excerpt=dependency.declaration,
+            data={
+                "evidence_type": "manifest_fact",
+                "package": dependency.name,
+                "ecosystem": dependency.ecosystem,
+                "specifier": dependency.specifier,
+                "resolved_version": dependency.resolved_version,
+                "version_resolved": dependency.version_resolved,
+                "scope": dependency.scope,
+                "marker": dependency.marker,
+                "provenance": {
+                    "path": dependency.source_path,
+                    "line": dependency.source_line,
+                    "declaration": dependency.declaration,
+                },
+                "vulnerability_check_error": dependency.vulnerability_check_error,
+            },
+        )
+
+    @staticmethod
+    def _vulnerability_evidence(
+        dependency: SnapshotDependency, finding: DependencyVulnerability
+    ) -> EvidenceCandidate:
+        return EvidenceCandidate(
+            title=f"{finding.osv_id} affects {dependency.name} {dependency.resolved_version}",
+            filepath=dependency.source_path,
+            start_line=dependency.source_line or 1,
+            end_line=dependency.source_line or 1,
+            excerpt=dependency.declaration,
+            data={
+                "evidence_type": "external_vulnerability_fact",
+                "source": finding.source,
+                "source_url": finding.source_url,
+                "queried_at": finding.queried_at.isoformat(),
+                "osv_id": finding.osv_id,
+                "package": dependency.name,
+                "version": dependency.resolved_version,
+                "summary": finding.summary,
+                "details": finding.details,
+                "aliases": finding.aliases,
+                "severity": finding.severity,
+                "affected": finding.affected,
+                "interpretation_warning": (
+                    "A vulnerable dependency match does not establish application exploitability."
+                ),
+            },
+        )

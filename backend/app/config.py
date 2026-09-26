@@ -43,6 +43,11 @@ class Settings(BaseSettings):
     agent_max_source_lines: int = Field(default=400, ge=1, le=2_000)
     routing_confidence_threshold: float = Field(default=0.70, ge=0, le=1)
     routing_laya_model: str = "typed-decisions"
+    osv_api_url: str = "https://api.osv.dev"
+    osv_timeout_seconds: int = Field(default=20, ge=1, le=120)
+    osv_max_results_per_dependency: int = Field(default=100, ge=1, le=500)
+    dependency_max_manifests: int = Field(default=100, ge=1, le=1_000)
+    dependency_max_records: int = Field(default=5_000, ge=1, le=50_000)
 
     model_config = SettingsConfigDict(
         env_prefix="REPOLENS_",

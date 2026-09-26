@@ -15,8 +15,10 @@ from sqlalchemy.orm import Session
 
 from app.analysis.python_ast import PythonAnalysis, analyze_python, module_name_from_path
 from app.config import Settings
+from app.dependencies.extraction import ExtractedDependency, PythonDependencyExtractor
 from app.graph.service import StructuralGraphService
 from app.models.code_symbol import CodeSymbol
+from app.models.dependency import SnapshotDependency
 from app.models.repository import Repository, RepositoryStatus
 from app.models.snapshot import RepositorySnapshot, SnapshotStatus
 from app.models.source_file import FileParseStatus, SourceFile
@@ -45,6 +47,7 @@ class CandidateFile:
 @dataclass
 class ScanResult:
     files: list[CandidateFile]
+    dependencies: list[ExtractedDependency]
     skipped_file_count: int = 0
     total_bytes: int = 0
 
@@ -100,7 +103,7 @@ class RepositoryIngestionService:
             return None
 
     def _scan(self, root: Path) -> ScanResult:
-        result = ScanResult(files=[])
+        result = ScanResult(files=[], dependencies=[])
         for relative_path, source_path in self._walk_candidates(root):
             try:
                 size = source_path.stat().st_size
@@ -141,6 +144,11 @@ class RepositoryIngestionService:
                 )
             )
             result.total_bytes += len(data)
+        result.dependencies = PythonDependencyExtractor(
+            self.settings.ingestion_max_file_bytes,
+            self.settings.dependency_max_manifests,
+            self.settings.dependency_max_records,
+        ).extract(root)
         return result
 
     def _mark_repository_failed(self, repository: Repository, message: str) -> None:
@@ -171,6 +179,7 @@ class RepositoryIngestionService:
             self.session.add(snapshot)
         else:
             snapshot.files.clear()
+            snapshot.dependencies.clear()
             snapshot.branch = acquired.branch
             snapshot.status = SnapshotStatus.INGESTING
             snapshot.error_message = None
@@ -228,6 +237,25 @@ class RepositoryIngestionService:
                 )
                 import_count += 1
             self.session.add(source_file)
+
+        for item in result.dependencies:
+            self.session.add(
+                SnapshotDependency(
+                    snapshot=snapshot,
+                    ecosystem=item.ecosystem,
+                    name=item.name,
+                    normalized_name=item.normalized_name,
+                    specifier=item.specifier,
+                    resolved_version=item.resolved_version,
+                    version_resolved=item.resolved_version is not None,
+                    source_type=item.source_type,
+                    source_path=item.source_path,
+                    source_line=item.source_line,
+                    declaration=item.declaration,
+                    scope=item.scope,
+                    marker=item.marker,
+                )
+            )
 
         self.session.flush()
         StructuralGraphService(self.session, self.settings.graph_source_root_names).build(

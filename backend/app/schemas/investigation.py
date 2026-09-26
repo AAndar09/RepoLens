@@ -11,6 +11,8 @@ ToolName = Literal[
     "read_source",
     "structural_lookup",
     "repository_metadata",
+    "list_dependencies",
+    "check_vulnerabilities",
 ]
 TerminationReason = Literal["completed", "max_steps", "no_more_tools"]
 
@@ -76,6 +78,18 @@ class StructuralLookupArguments(StrictModel):
 
 class RepositoryMetadataArguments(StrictModel):
     pass
+
+
+class ListDependenciesArguments(StrictModel):
+    package: str | None = Field(default=None, max_length=255)
+    resolved_only: bool = False
+    limit: int = Field(default=50, ge=1, le=100)
+
+
+class CheckVulnerabilitiesArguments(StrictModel):
+    package: str | None = Field(default=None, max_length=255)
+    refresh: bool = False
+    limit: int = Field(default=50, ge=1, le=100)
 
 
 class CitationResponse(StrictModel):

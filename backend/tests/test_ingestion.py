@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from app.config import Settings
 from app.models.code_symbol import CodeSymbol, SymbolKind
+from app.models.dependency import SnapshotDependency
 from app.models.repository import Repository, RepositoryStatus
 from app.models.snapshot import RepositorySnapshot, SnapshotStatus
 from app.models.source_file import FileParseStatus, SourceFile
@@ -58,6 +59,9 @@ def create_checkout(root: Path) -> None:
     (root / "broken.py").write_text("def broken(:\n    pass\n", encoding="utf-8")
     (root / "binary.py").write_bytes(b"\x00not-python")
     (root / "README.md").write_text("not source", encoding="utf-8")
+    (root / "requirements.txt").write_text(
+        "httpx==0.28.1\npytest>=8\n", encoding="utf-8"
+    )
     excluded = root / ".venv"
     excluded.mkdir()
     (excluded / "ignored.py").write_text("ignored = True\n", encoding="utf-8")
@@ -86,6 +90,15 @@ def test_ingestion_persists_snapshot_files_symbols_and_imports(
         assert snapshot.symbol_count == 5
         assert snapshot.import_count == 2
         assert repository.status == RepositoryStatus.READY
+
+        dependencies = list(
+            session.scalars(
+                select(SnapshotDependency).order_by(SnapshotDependency.normalized_name)
+            )
+        )
+        assert [item.normalized_name for item in dependencies] == ["httpx", "pytest"]
+        assert dependencies[0].resolved_version == "0.28.1"
+        assert dependencies[1].version_resolved is False
 
         files = list(session.scalars(select(SourceFile).order_by(SourceFile.path)))
         assert [source_file.path for source_file in files] == [
