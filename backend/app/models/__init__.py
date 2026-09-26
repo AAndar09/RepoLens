@@ -4,10 +4,13 @@ from app.models.retrieval import RetrievalIndexStatus, RetrievalUnit, SnapshotRe
 from app.models.snapshot import RepositorySnapshot, SnapshotStatus
 from app.models.source_file import FileParseStatus, SourceFile
 from app.models.source_import import SourceImport
+from app.models.structural_graph import ImportResolutionStatus, ModuleImportResolution
 
 __all__ = [
     "CodeSymbol",
     "FileParseStatus",
+    "ImportResolutionStatus",
+    "ModuleImportResolution",
     "Repository",
     "RepositorySnapshot",
     "RepositoryStatus",

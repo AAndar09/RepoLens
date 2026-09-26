@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 
 from app.analysis.python_ast import PythonAnalysis, analyze_python, module_name_from_path
 from app.config import Settings
+from app.graph.service import StructuralGraphService
 from app.models.code_symbol import CodeSymbol
 from app.models.repository import Repository, RepositoryStatus
 from app.models.snapshot import RepositorySnapshot, SnapshotStatus
@@ -227,6 +228,11 @@ class RepositoryIngestionService:
                 )
                 import_count += 1
             self.session.add(source_file)
+
+        self.session.flush()
+        StructuralGraphService(
+            self.session, self.settings.graph_source_root_names
+        ).build(snapshot, commit=False)
 
         snapshot.status = SnapshotStatus.READY
         snapshot.error_message = None
