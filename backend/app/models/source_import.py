@@ -8,6 +8,7 @@ from app.database import Base
 
 if TYPE_CHECKING:
     from app.models.source_file import SourceFile
+    from app.models.structural_graph import ModuleImportResolution
 
 
 class SourceImport(Base):
@@ -26,4 +27,8 @@ class SourceImport(Base):
     end_line: Mapped[int] = mapped_column(Integer, nullable=False)
 
     source_file: Mapped["SourceFile"] = relationship(back_populates="imports")
-
+    resolution: Mapped["ModuleImportResolution | None"] = relationship(
+        back_populates="source_import",
+        cascade="all, delete-orphan",
+        uselist=False,
+    )

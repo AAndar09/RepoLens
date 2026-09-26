@@ -1,4 +1,4 @@
-# Phase 2 API
+# Phase 4 API
 
 The API is rooted at `/api/v1`. Generated OpenAPI is available at `/openapi.json` and interactive documentation at `/docs`.
 
@@ -62,3 +62,24 @@ ready index is reused. `GET` on the same path reports its lifecycle and unit cou
 `symbol_kind`, and `language`. Evidence contains snapshot identity, code/path/line range, symbol
 metadata, available score components, and a GitHub link pinned to its commit. An unindexed
 snapshot returns `409`.
+
+## Structural graph
+
+Ingestion builds deterministic graph relationships automatically. Existing snapshots can be
+backfilled or rebuilt idempotently with:
+
+- `POST /api/v1/repositories/{repository_id}/snapshots/{snapshot_id}/graph`
+- `GET /api/v1/repositories/{repository_id}/snapshots/{snapshot_id}/graph`
+
+The summary reports module, symbol, and import counts plus resolved, unresolved, and ambiguous
+import totals. Controlled lookup endpoints are:
+
+- `GET .../graph/modules/{module_id}/symbols`
+- `GET .../graph/modules/{module_id}/imports`
+- `GET .../graph/modules/{module_id}/importers`
+- `GET .../graph/symbols/{symbol_id}/containment`
+
+Module IDs are source-file IDs. Import results always include resolution status, requested module,
+candidate paths, a human-readable reason, source line range, and an optional resolved target.
+Importers contain only uniquely resolved internal module relationships. All IDs are validated
+against the repository snapshot in the route.

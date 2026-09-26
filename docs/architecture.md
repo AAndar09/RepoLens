@@ -1,6 +1,6 @@
 # Architecture
 
-## Phase 3 system context
+## Phase 4 system context
 
 RepoLens is a React application backed by FastAPI. PostgreSQL is the durable authority for
 repositories, immutable snapshots, extracted Python intelligence, retrieval units, and index
@@ -25,6 +25,20 @@ commit. `source_files`, `code_symbols`, and `source_imports` are snapshot-scoped
 `snapshot_retrieval_indexes` records one retrieval lifecycle per snapshot, while `retrieval_units`
 retain bounded symbol-aware chunks, source metadata, and materialized lexical text.
 
+## Structural graph
+
+The relational source model is also the graph model: source files are module nodes, symbols are
+nodes contained by their `source_file_id`, and `parent_id` is the AST-derived symbol-containment
+edge. This avoids copying facts already enforced by foreign keys. One persisted
+`module_import_resolutions` row records the outcome for every parsed import in a snapshot.
+
+Import resolution is conservative. Absolute module names and Python relative-import levels are
+resolved only against uniquely matching indexed modules. Configured source roots (default `src`)
+provide deterministic aliases for common source layouts. A match is `resolved`; multiple physical
+matches are `ambiguous`; and no indexed match or an invalid relative traversal is `unresolved`.
+Each record retains the requested module, candidate paths, and a reason. No call graph or dynamic
+import behavior is inferred.
+
 ## Retrieval
 
 Indexing normally produces one unit per extracted symbol, including module symbols. Oversized
@@ -45,11 +59,12 @@ GitHub link pinned to the immutable indexed commit.
 - `app/services`: Git acquisition and ingestion orchestration.
 - `app/analysis`: deterministic Python AST analysis.
 - `app/retrieval`: units, embeddings, lexical/hybrid strategy, and Qdrant adapter.
+- `app/graph`: deterministic import resolution and bounded structural traversal.
 - `app/models` and `migrations`: relational schema authority.
 
 All runtime settings use `REPOLENS_`. `.env.example` documents ingestion limits, Qdrant endpoint,
-embedding provider/dimensions, and retrieval limits. The Compose backend points at `qdrant:6333`;
-native development defaults to `localhost:6333`.
+embedding provider/dimensions, retrieval limits, and structural source roots. The Compose backend
+points at `qdrant:6333`; native development defaults to `localhost:6333`.
 
 Background jobs, private repositories, non-Python code, learned/remote embedding providers,
 vulnerability analysis, LangGraph/Laya, and autonomous agents remain out of scope.

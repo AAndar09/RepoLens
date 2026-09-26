@@ -32,6 +32,7 @@ class Settings(BaseSettings):
     retrieval_max_units_per_snapshot: int = Field(default=20_000, ge=1)
     retrieval_lexical_candidate_limit: int = Field(default=5_000, ge=1)
     retrieval_hybrid_rrf_k: int = Field(default=60, ge=1)
+    graph_source_roots: str = "src"
 
     model_config = SettingsConfigDict(
         env_prefix="REPOLENS_",
@@ -59,6 +60,10 @@ class Settings(BaseSettings):
     @property
     def ingestion_excluded_directory_names(self) -> frozenset[str]:
         return frozenset(self._split_csv(self.ingestion_exclude_directories))
+
+    @property
+    def graph_source_root_names(self) -> tuple[str, ...]:
+        return self._split_csv(self.graph_source_roots)
 
 
 @lru_cache

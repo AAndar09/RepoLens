@@ -1,7 +1,8 @@
 # RepoLens
 
 RepoLens ingests public GitHub Python repositories, records immutable commit snapshots, and offers
-lexical, semantic, and hybrid code retrieval with commit-pinned source evidence.
+lexical, semantic, hybrid, and deterministic structural code retrieval with commit-pinned source
+evidence.
 
 ## Quick start
 
