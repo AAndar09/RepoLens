@@ -1,4 +1,5 @@
 from app.models.code_symbol import CodeSymbol, SymbolKind
+from app.models.dependency import DependencySourceType, DependencyVulnerability, SnapshotDependency
 from app.models.repository import Repository, RepositoryStatus
 from app.models.retrieval import RetrievalIndexStatus, RetrievalUnit, SnapshotRetrievalIndex
 from app.models.snapshot import RepositorySnapshot, SnapshotStatus
@@ -8,6 +9,8 @@ from app.models.structural_graph import ImportResolutionStatus, ModuleImportReso
 
 __all__ = [
     "CodeSymbol",
+    "DependencySourceType",
+    "DependencyVulnerability",
     "FileParseStatus",
     "ImportResolutionStatus",
     "ModuleImportResolution",
@@ -17,6 +20,7 @@ __all__ = [
     "RetrievalIndexStatus",
     "RetrievalUnit",
     "SnapshotStatus",
+    "SnapshotDependency",
     "SourceFile",
     "SourceImport",
     "SnapshotRetrievalIndex",

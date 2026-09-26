@@ -135,7 +135,10 @@ class OllamaInvestigationModel:
             AnswerDraft,
             (
                 "Answer only from supplied evidence. Be explicit about uncertainty. Reference "
-                "claims using the supplied evidence IDs, and never invent an ID or source fact."
+                "claims using the supplied evidence IDs, and never invent an ID or source fact. "
+                "Treat OSV records as external facts and any impact/exploitability assessment as "
+                "interpretation. Never claim a dependency finding proves the application is "
+                "exploitable."
             ),
             {
                 "question": question,

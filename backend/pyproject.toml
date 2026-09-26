@@ -14,6 +14,7 @@ dependencies = [
   "httpx>=0.28,<1",
   "langgraph>=1.0,<2",
   "laya>=0.3,<1",
+  "packaging>=24,<27",
   "pydantic-settings>=2.7,<3",
   "psycopg[binary]>=3.2,<4",
   "qdrant-client>=1.14,<2",

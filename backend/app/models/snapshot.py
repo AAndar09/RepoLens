@@ -19,6 +19,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database import Base
 
 if TYPE_CHECKING:
+    from app.models.dependency import SnapshotDependency
     from app.models.repository import Repository
     from app.models.retrieval import SnapshotRetrievalIndex
     from app.models.source_file import SourceFile
@@ -76,4 +77,9 @@ class RepositorySnapshot(Base):
     module_import_resolutions: Mapped[list["ModuleImportResolution"]] = relationship(
         back_populates="snapshot",
         cascade="all, delete-orphan",
+    )
+    dependencies: Mapped[list["SnapshotDependency"]] = relationship(
+        back_populates="snapshot",
+        cascade="all, delete-orphan",
+        order_by="SnapshotDependency.normalized_name",
     )
