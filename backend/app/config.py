@@ -41,6 +41,8 @@ class Settings(BaseSettings):
     agent_max_tool_calls_per_step: int = Field(default=4, ge=1, le=10)
     agent_max_evidence_items: int = Field(default=30, ge=1, le=100)
     agent_max_source_lines: int = Field(default=400, ge=1, le=2_000)
+    routing_confidence_threshold: float = Field(default=0.70, ge=0, le=1)
+    routing_laya_model: str = "typed-decisions"
 
     model_config = SettingsConfigDict(
         env_prefix="REPOLENS_",

@@ -114,14 +114,8 @@ class ControlledToolset:
             f"{self.snapshot.commit_sha}/{quote(filepath, safe='/')}{fragment}"
         )
 
-    def citation(
-        self, candidate: EvidenceCandidate, citation_id: str
-    ) -> CitationResponse | None:
-        if (
-            candidate.filepath is None
-            or candidate.start_line is None
-            or candidate.end_line is None
-        ):
+    def citation(self, candidate: EvidenceCandidate, citation_id: str) -> CitationResponse | None:
+        if candidate.filepath is None or candidate.start_line is None or candidate.end_line is None:
             return None
         return CitationResponse(
             id=citation_id,
@@ -278,9 +272,9 @@ class ControlledToolset:
         arguments = StructuralLookupArguments.model_validate(raw_arguments)
         if arguments.operation == "module_symbols":
             source_file = self.graph.module(self.snapshot.id, arguments.entity_id)
-            symbols = self.graph.symbols_in_module(
-                self.snapshot.id, arguments.entity_id
-            )[: arguments.limit]
+            symbols = self.graph.symbols_in_module(self.snapshot.id, arguments.entity_id)[
+                : arguments.limit
+            ]
             evidence = tuple(
                 EvidenceCandidate(
                     title=symbol.qualified_name,
@@ -311,9 +305,7 @@ class ControlledToolset:
             )[: arguments.limit]
             evidence = tuple(self._import_evidence(item) for item in relationships)
         else:
-            containment = self.graph.symbol_containment(
-                self.snapshot.id, arguments.entity_id
-            )
+            containment = self.graph.symbol_containment(self.snapshot.id, arguments.entity_id)
             symbol = containment.symbol
             evidence = (
                 EvidenceCandidate(

@@ -138,18 +138,16 @@ def test_source_file_limit_fails_the_snapshot_without_partial_files(
         assert session.scalar(select(func.count()).select_from(SourceFile)) == 0
 
 
-def test_oversized_file_is_skipped(
-    session_factory: sessionmaker[Session], tmp_path: Path
-) -> None:
+def test_oversized_file_is_skipped(session_factory: sessionmaker[Session], tmp_path: Path) -> None:
     (tmp_path / "small.py").write_text("value = 1\n", encoding="utf-8")
     (tmp_path / "large.py").write_text("x = '" + "a" * 200 + "'\n", encoding="utf-8")
     settings = Settings(_env_file=None, ingestion_max_file_bytes=100)
 
     with session_factory() as session:
         repository = create_repository(session)
-        snapshot = RepositoryIngestionService(
-            session, settings, FakeAcquirer(tmp_path)
-        ).ingest(repository)
+        snapshot = RepositoryIngestionService(session, settings, FakeAcquirer(tmp_path)).ingest(
+            repository
+        )
 
         assert snapshot.status == SnapshotStatus.READY
         assert snapshot.file_count == 1

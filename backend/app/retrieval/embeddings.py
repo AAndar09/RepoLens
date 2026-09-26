@@ -49,7 +49,7 @@ class HashingEmbeddingProvider:
             vector[integer % self.dimensions] += sign
             if len(token) >= 4:
                 for index in range(len(token) - 2):
-                    integer, sign = self._feature_hash(f"trigram:{token[index:index + 3]}")
+                    integer, sign = self._feature_hash(f"trigram:{token[index : index + 3]}")
                     vector[integer % self.dimensions] += sign * 0.25
         magnitude = math.sqrt(sum(value * value for value in vector))
         if magnitude:
@@ -67,4 +67,3 @@ def create_embedding_provider(settings: Settings) -> EmbeddingProvider:
         f"Unsupported embedding provider: {settings.embedding_provider}. "
         "Configure REPOLENS_EMBEDDING_PROVIDER=hashing."
     )
-

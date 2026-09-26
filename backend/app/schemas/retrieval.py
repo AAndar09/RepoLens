@@ -62,4 +62,3 @@ class SearchResponse(BaseModel):
     query: str
     mode: SearchMode
     results: list[EvidenceResponse]
-

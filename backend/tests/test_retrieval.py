@@ -64,17 +64,13 @@ class MemoryVectors:
                 and (not language or payload["language"] == language)
             )
             if matches:
-                score = sum(
-                    left * right for left, right in zip(vector, point.vector, strict=True)
-                )
+                score = sum(left * right for left, right in zip(vector, point.vector, strict=True))
                 hits.append(VectorHit(point.id, score))
         return sorted(hits, key=lambda hit: -hit.score)[:limit]
 
 
 def _seed(session: Session) -> tuple[Repository, RepositorySnapshot]:
-    repository = Repository(
-        github_url="https://github.com/acme/demo", owner="acme", name="demo"
-    )
+    repository = Repository(github_url="https://github.com/acme/demo", owner="acme", name="demo")
     snapshot = RepositorySnapshot(
         repository=repository,
         branch="main",

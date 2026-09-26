@@ -1,6 +1,6 @@
 # Architecture
 
-## Phase 5 system context
+## Phase 6 system context
 
 RepoLens is a React application backed by FastAPI. PostgreSQL is the durable authority for
 repositories, immutable snapshots, extracted Python intelligence, retrieval units, and index
@@ -75,6 +75,12 @@ commit URL. Synthesis may cite only returned citable evidence IDs. The workflow 
 limits for investigation rounds, calls per round, evidence items, and source lines, plus an
 independent LangGraph recursion limit. A tool failure does not terminate other calls.
 
+## Laya query routing
+
+Before a routed query reaches retrieval or the investigation agent, a lazy local Laya typed-decision classifier selects a category and maps it only to existing controlled capabilities: direct metadata, direct symbol lookup, hybrid retrieval, or the bounded LangGraph investigation. It cannot access source files, tools, infrastructure, or credentials.
+
+The response and application log include category, route, confidence, and fallback status. A result below `REPOLENS_ROUTING_CONFIDENCE_THRESHOLD` (default `0.70`), a malformed result, or Laya failure falls back to full investigation. The labelled evaluation dataset measures category and route accuracy.
+
 ## Boundaries and configuration
 
 - `app/api`: versioned HTTP contract.
@@ -83,11 +89,11 @@ independent LangGraph recursion limit. A tool failure does not terminate other c
 - `app/retrieval`: units, embeddings, lexical/hybrid strategy, and Qdrant adapter.
 - `app/graph`: deterministic import resolution and bounded structural traversal.
 - `app/agent`: model abstraction, controlled tools, and LangGraph investigation workflow.
+- `app/routing`: Laya adapter, route policy, direct controlled execution, and evaluation dataset.
 - `app/models` and `migrations`: relational schema authority.
 
 All runtime settings use `REPOLENS_`. `.env.example` documents ingestion and retrieval limits,
 structural source roots, agent safeguards, and Ollama configuration. Compose connects the backend
 to Qdrant and permits access to a host Ollama instance through `host.docker.internal`.
 
-Background jobs, private repositories, non-Python code, conversation memory, Laya routing,
-vulnerability analysis, and unrestricted agent tools remain out of scope.
+Background jobs, private repositories, non-Python code, conversation memory, external vulnerability data, and unrestricted agent tools remain out of scope.

@@ -18,9 +18,7 @@ class CheckoutAcquirer:
         yield AcquiredRepository(path=self.path, branch="trunk", commit_sha="b" * 40)
 
 
-def test_ingestion_and_intelligence_query_endpoints(
-    client: TestClient, tmp_path: Path
-) -> None:
+def test_ingestion_and_intelligence_query_endpoints(client: TestClient, tmp_path: Path) -> None:
     (tmp_path / "example.py").write_text(
         "from pathlib import Path\n\ndef location() -> Path:\n    return Path('.')\n",
         encoding="utf-8",
@@ -48,9 +46,7 @@ def test_ingestion_and_intelligence_query_endpoints(
     snapshots = client.get(f"/api/v1/repositories/{repository_id}/snapshots").json()
     assert [item["id"] for item in snapshots] == [snapshot_id]
 
-    files = client.get(
-        f"/api/v1/repositories/{repository_id}/snapshots/{snapshot_id}/files"
-    ).json()
+    files = client.get(f"/api/v1/repositories/{repository_id}/snapshots/{snapshot_id}/files").json()
     assert files[0]["path"] == "example.py"
     file_detail = client.get(
         f"/api/v1/repositories/{repository_id}/snapshots/{snapshot_id}/files/{files[0]['id']}"
@@ -69,4 +65,3 @@ def test_ingestion_and_intelligence_query_endpoints(
     ).json()
     assert imports[0]["module"] == "pathlib"
     assert imports[0]["imported_name"] == "Path"
-

@@ -237,9 +237,7 @@ class LoopingModel(FailureTolerantModel):
 
 
 def _tools(session, settings, repository, snapshot, vectors, embeddings):
-    return ControlledToolset(
-        session, settings, repository, snapshot, vectors, embeddings
-    )
+    return ControlledToolset(session, settings, repository, snapshot, vectors, embeddings)
 
 
 def test_agent_performs_multiple_lookup_rounds_with_snapshot_citations(
@@ -310,9 +308,7 @@ def test_search_code_tool_wraps_hybrid_retrieval(session_factory) -> None:
     with session_factory() as session:
         repository, snapshot, _, _ = _seed(session)
         RetrievalIndexer(session, settings, vectors, embeddings).index_snapshot(snapshot)
-        result = _tools(
-            session, settings, repository, snapshot, vectors, embeddings
-        ).execute(
+        result = _tools(session, settings, repository, snapshot, vectors, embeddings).execute(
             ToolRequest(
                 tool="search_code",
                 arguments={"query": "increment input", "mode": "hybrid"},
@@ -324,9 +320,7 @@ def test_search_code_tool_wraps_hybrid_retrieval(session_factory) -> None:
     assert result.evidence[0].filepath == "src/demo.py"
 
 
-def test_investigation_api_returns_structured_trace(
-    client: TestClient, session_factory
-) -> None:
+def test_investigation_api_returns_structured_trace(client: TestClient, session_factory) -> None:
     vectors = MemoryVectors()
     embeddings = HashingEmbeddingProvider(16)
     with session_factory() as session:

@@ -21,4 +21,3 @@ def health_check(session: Annotated[Session, Depends(get_session)]) -> HealthRes
             detail="Database is unavailable",
         ) from exc
     return HealthResponse(status="ok", database="ok")
-

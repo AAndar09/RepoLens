@@ -69,4 +69,3 @@ class ImportResponse(BaseModel):
     level: int
     start_line: int
     end_line: int
-

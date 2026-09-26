@@ -24,9 +24,7 @@ class InvestigationModel(Protocol):
     @property
     def name(self) -> str: ...
 
-    def plan(
-        self, question: str, repository_context: dict[str, object]
-    ) -> InvestigationPlan: ...
+    def plan(self, question: str, repository_context: dict[str, object]) -> InvestigationPlan: ...
 
     def evaluate(
         self,
@@ -92,9 +90,7 @@ class OllamaInvestigationModel:
                 f"The configured Ollama model could not produce {output_type.__name__}"
             ) from exc
 
-    def plan(
-        self, question: str, repository_context: dict[str, object]
-    ) -> InvestigationPlan:
+    def plan(self, question: str, repository_context: dict[str, object]) -> InvestigationPlan:
         return self._structured(
             InvestigationPlan,
             (

@@ -21,9 +21,7 @@ class GraphCheckoutAcquirer:
 def _ingest_graph_fixture(client: TestClient, root: Path) -> tuple[str, str]:
     package = root / "package"
     package.mkdir()
-    (package / "__init__.py").write_text(
-        "from .service import Greeter\n", encoding="utf-8"
-    )
+    (package / "__init__.py").write_text("from .service import Greeter\n", encoding="utf-8")
     (package / "service.py").write_text(
         "class Greeter:\n    def greet(self):\n        return 'hello'\n",
         encoding="utf-8",
@@ -32,18 +30,14 @@ def _ingest_graph_fixture(client: TestClient, root: Path) -> tuple[str, str]:
     source_root.mkdir()
     (source_root / "pkg.py").write_text("value = 'src'\n", encoding="utf-8")
     (root / "pkg.py").write_text("value = 'root'\n", encoding="utf-8")
-    (root / "consumer.py").write_text(
-        "import pkg\nimport external_dependency\n", encoding="utf-8"
-    )
+    (root / "consumer.py").write_text("import pkg\nimport external_dependency\n", encoding="utf-8")
 
     app.dependency_overrides[get_repository_acquirer] = lambda: GraphCheckoutAcquirer(root)
     repository = client.post(
         "/api/v1/repositories",
         json={"github_url": "https://github.com/example/structural-graph"},
     ).json()
-    snapshot = client.post(
-        f"/api/v1/repositories/{repository['id']}/ingestions"
-    ).json()
+    snapshot = client.post(f"/api/v1/repositories/{repository['id']}/ingestions").json()
     return repository["id"], snapshot["id"]
 
 
@@ -68,9 +62,7 @@ def test_graph_queries_resolve_containment_importers_and_uncertainty(
 
     files = client.get(f"{base}/files").json()
     file_ids = {item["path"]: item["id"] for item in files}
-    consumer_imports = client.get(
-        f"{base}/graph/modules/{file_ids['consumer.py']}/imports"
-    ).json()
+    consumer_imports = client.get(f"{base}/graph/modules/{file_ids['consumer.py']}/imports").json()
     assert consumer_imports[0]["status"] == "ambiguous"
     assert consumer_imports[0]["candidate_paths"] == ["pkg.py", "src/pkg.py"]
     assert consumer_imports[1]["status"] == "unresolved"
@@ -85,17 +77,11 @@ def test_graph_queries_resolve_containment_importers_and_uncertainty(
     importers = client.get(
         f"{base}/graph/modules/{file_ids['package/service.py']}/importers"
     ).json()
-    assert [item["source_module"]["path"] for item in importers] == [
-        "package/__init__.py"
-    ]
+    assert [item["source_module"]["path"] for item in importers] == ["package/__init__.py"]
 
-    symbols = client.get(
-        f"{base}/graph/modules/{file_ids['package/service.py']}/symbols"
-    ).json()
+    symbols = client.get(f"{base}/graph/modules/{file_ids['package/service.py']}/symbols").json()
     symbol_ids = {item["name"]: item["id"] for item in symbols}
-    containment = client.get(
-        f"{base}/graph/symbols/{symbol_ids['Greeter']}/containment"
-    ).json()
+    containment = client.get(f"{base}/graph/symbols/{symbol_ids['Greeter']}/containment").json()
     assert containment["parent"]["kind"] == "module"
     assert [item["name"] for item in containment["children"]] == ["greet"]
 
