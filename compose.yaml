@@ -46,6 +46,14 @@ services:
       REPOLENS_RETRIEVAL_MAX_UNIT_CHARS: ${REPOLENS_RETRIEVAL_MAX_UNIT_CHARS:-12000}
       REPOLENS_RETRIEVAL_MAX_UNITS_PER_SNAPSHOT: ${REPOLENS_RETRIEVAL_MAX_UNITS_PER_SNAPSHOT:-20000}
       REPOLENS_GRAPH_SOURCE_ROOTS: ${REPOLENS_GRAPH_SOURCE_ROOTS:-src}
+      REPOLENS_AGENT_MODEL_PROVIDER: ${REPOLENS_AGENT_MODEL_PROVIDER:-ollama}
+      REPOLENS_OLLAMA_URL: ${REPOLENS_OLLAMA_URL:-http://host.docker.internal:11434}
+      REPOLENS_OLLAMA_MODEL: ${REPOLENS_OLLAMA_MODEL:-qwen2.5-coder:7b}
+      REPOLENS_AGENT_MODEL_TIMEOUT_SECONDS: ${REPOLENS_AGENT_MODEL_TIMEOUT_SECONDS:-120}
+      REPOLENS_AGENT_MAX_STEPS: ${REPOLENS_AGENT_MAX_STEPS:-4}
+      REPOLENS_AGENT_MAX_TOOL_CALLS_PER_STEP: ${REPOLENS_AGENT_MAX_TOOL_CALLS_PER_STEP:-4}
+      REPOLENS_AGENT_MAX_EVIDENCE_ITEMS: ${REPOLENS_AGENT_MAX_EVIDENCE_ITEMS:-30}
+      REPOLENS_AGENT_MAX_SOURCE_LINES: ${REPOLENS_AGENT_MAX_SOURCE_LINES:-400}
     command: sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
     ports:
       - "8000:8000"
@@ -56,6 +64,8 @@ services:
         condition: service_healthy
       qdrant:
         condition: service_started
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/health')"]
       interval: 10s

@@ -33,6 +33,14 @@ class Settings(BaseSettings):
     retrieval_lexical_candidate_limit: int = Field(default=5_000, ge=1)
     retrieval_hybrid_rrf_k: int = Field(default=60, ge=1)
     graph_source_roots: str = "src"
+    agent_model_provider: str = "ollama"
+    ollama_url: str = "http://localhost:11434"
+    ollama_model: str = "qwen2.5-coder:7b"
+    agent_model_timeout_seconds: int = Field(default=120, ge=1, le=600)
+    agent_max_steps: int = Field(default=4, ge=1, le=10)
+    agent_max_tool_calls_per_step: int = Field(default=4, ge=1, le=10)
+    agent_max_evidence_items: int = Field(default=30, ge=1, le=100)
+    agent_max_source_lines: int = Field(default=400, ge=1, le=2_000)
 
     model_config = SettingsConfigDict(
         env_prefix="REPOLENS_",
