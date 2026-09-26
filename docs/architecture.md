@@ -1,65 +1,55 @@
 # Architecture
 
-## Phase 2 system context
+## Phase 3 system context
 
-RepoLens is a React single-page application backed by a versioned FastAPI API. The API owns repository validation, bounded Git acquisition, deterministic Python analysis, and relational persistence. PostgreSQL is the normal Docker Compose database; SQLite remains available for lightweight native development and tests. Alembic is the schema authority.
-
-Qdrant is provisioned for later retrieval phases but Phase 2 does not create collections or connect application code to it.
+RepoLens is a React application backed by FastAPI. PostgreSQL is the durable authority for
+repositories, immutable snapshots, extracted Python intelligence, retrieval units, and index
+lifecycle. Qdrant holds only vectors and is always queried with a snapshot payload filter.
 
 ```text
-Browser
-  | HTTP/JSON
-  v
-React/Vite (:5173) ---> FastAPI /api/v1 (:8000) ---> PostgreSQL (:5432)
-                              |
-                              +-- shallow HTTPS clone --> temporary checkout
-                              |                            (deleted after use)
-                              +-- Python ast parsing
-                              |
-                              +-- future retrieval ------> Qdrant (:6333/:6334)
+Browser -> React/Vite (:5173) -> FastAPI /api/v1 (:8000) -> PostgreSQL (:5432)
+                                             |                  |
+                                             +-- safe Git clone  +-- Qdrant (:6333)
+                                             +-- AST extraction  +-- hybrid retrieval
 ```
 
-## Ingestion sequence
+## Ingestion and data model
 
-1. A canonical `https://github.com/{owner}/{repository}` URL is submitted.
-2. An explicit ingestion request marks the repository `ingesting`.
-3. Git makes a shallow, non-recursive HTTPS clone in a temporary directory with prompts, hooks, global/system Git configuration, and LFS smudging disabled.
-4. RepoLens records the checked-out branch and full commit SHA.
-5. The walker applies configured file globs, excluded directories, and file/count/byte limits.
-6. Accepted Python files are decoded using Python's declared-source-encoding rules and hashed with SHA-256.
-7. Python's standard `ast` module extracts modules, classes, functions, methods, and imports with line ranges.
-8. The snapshot and its intelligence are committed, and the temporary checkout is deleted.
+Ingestion shallow-clones a public repository with Git prompts, hooks, global/system config, and
+LFS smudging disabled. It records default branch and full commit SHA, applies configured source
+limits, hashes/decodes accepted Python files, and uses `ast` to persist modules, classes,
+functions, methods, imports, and source ranges. Repository code is never executed.
 
-Repository code is read but never imported or executed. Symlinks, binary files, unsupported files, and individually oversized files are skipped. A repository that exceeds aggregate limits fails the ingestion rather than storing partial intelligence. Syntax-invalid Python is retained with a `malformed` status and diagnostic so one bad file does not fail the snapshot.
+`repositories` identifies GitHub repositories. `repository_snapshots` is unique by repository and
+commit. `source_files`, `code_symbols`, and `source_imports` are snapshot-scoped intelligence.
+`snapshot_retrieval_indexes` records one retrieval lifecycle per snapshot, while `retrieval_units`
+retain bounded symbol-aware chunks, source metadata, and materialized lexical text.
 
-## Relational model
+## Retrieval
 
-- `repositories`: canonical GitHub identity and latest ingestion status/error.
-- `repository_snapshots`: immutable repository commit identity, branch, ingestion status, and aggregate counts.
-- `source_files`: snapshot-scoped path, module name, source text, SHA-256, size, line count, and parse outcome.
-- `code_symbols`: hierarchical module/class/function/method records with exact available AST line ranges.
-- `source_imports`: normalized `import` and `from ... import ...` records with aliases, relative level, and line ranges.
+Indexing normally produces one unit per extracted symbol, including module symbols. Oversized
+symbols are divided on line boundaries when possible. The default configurable `hashing` embedding
+provider is local and deterministic (384 dimensions); the provider interface permits future
+replacement without changing callers. Qdrant vectors include snapshot, path, symbol kind, and
+language payload metadata.
 
-A `(repository_id, commit_sha)` uniqueness constraint makes repeat ingestion idempotent. Re-ingesting an already completed commit returns its existing snapshot. A failed snapshot may be retried and rebuilt.
+Lexical search ranks query tokens against persisted code-aware fields. Semantic search queries
+Qdrant, then resolves hits through relational units in the selected retrieval index. Hybrid search
+uses reciprocal-rank fusion. This dual relational/vector scope prevents evidence crossing snapshot
+boundaries. Evidence has path, precise stored line range, symbol metadata, component scores, and a
+GitHub link pinned to the immutable indexed commit.
 
-## Backend boundaries
+## Boundaries and configuration
 
-- `app/api`: versioned HTTP transport and bounded query endpoints.
-- `app/schemas`: request and response contracts.
-- `app/models`: SQLAlchemy persistence models and enums.
-- `app/services/acquisition.py`: safe Git process boundary and checkout metadata.
-- `app/services/ingestion.py`: file policy, limits, hashing, and persistence orchestration.
-- `app/analysis/python_ast.py`: deterministic Python AST extraction.
-- `app/config.py`: typed environment configuration.
-- `migrations`: explicit and reversible schema history.
+- `app/api`: versioned HTTP contract.
+- `app/services`: Git acquisition and ingestion orchestration.
+- `app/analysis`: deterministic Python AST analysis.
+- `app/retrieval`: units, embeddings, lexical/hybrid strategy, and Qdrant adapter.
+- `app/models` and `migrations`: relational schema authority.
 
-Ingestion currently runs synchronously in FastAPI's worker thread. This keeps Phase 2 operationally small and makes status durable, but deployments should use conservative limits and timeouts. A later workload-driven ADR may introduce a job queue without changing the snapshot model.
+All runtime settings use `REPOLENS_`. `.env.example` documents ingestion limits, Qdrant endpoint,
+embedding provider/dimensions, and retrieval limits. The Compose backend points at `qdrant:6333`;
+native development defaults to `localhost:6333`.
 
-## Configuration and limits
-
-All settings use the `REPOLENS_` prefix. `.env.example` documents include/exclude policy, clone timeout, clone-size, candidate-file count, total source bytes, and per-file bytes. Production deployments must also replace the example database password and restrict browser origins.
-
-## Deferred concerns
-
-Background workers, explicit branch selection, authenticated/private repositories, non-Python languages, lexical indexing, embeddings, Qdrant collections, retrieval, model providers, LangGraph, Laya, OSV, and autonomous tools remain out of scope.
-
+Background jobs, private repositories, non-Python code, learned/remote embedding providers,
+vulnerability analysis, LangGraph/Laya, and autonomous agents remain out of scope.

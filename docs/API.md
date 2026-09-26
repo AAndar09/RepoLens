@@ -46,3 +46,19 @@ All collection endpoints accept bounded `limit` and `offset` parameters.
 
 The file-detail endpoint includes source content. Symbol queries optionally accept exact `kind` (`module`, `class`, `function`, or `method`) and `name` filters. Every symbol/import includes its source-file path and available line range.
 
+## Retrieval
+
+`POST /api/v1/repositories/{repository_id}/snapshots/{snapshot_id}/retrieval-index` builds the
+snapshot's vector and lexical index. It accepts optional `refresh=true`; otherwise a compatible
+ready index is reused. `GET` on the same path reports its lifecycle and unit count.
+
+`POST /api/v1/repositories/{repository_id}/snapshots/{snapshot_id}/search` accepts:
+
+```json
+{"query":"where is authentication checked?","mode":"hybrid","limit":10,"symbol_kind":"function"}
+```
+
+`mode` is `lexical`, `semantic`, or `hybrid`; optional filters are `filepath`, `filepath_prefix`,
+`symbol_kind`, and `language`. Evidence contains snapshot identity, code/path/line range, symbol
+metadata, available score components, and a GitHub link pinned to its commit. An unindexed
+snapshot returns `409`.
