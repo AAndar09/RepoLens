@@ -1,6 +1,6 @@
 # Architecture
 
-## Phase 7 system context
+## Phase 8 system context
 
 RepoLens is a React application backed by FastAPI. PostgreSQL is the durable authority for
 repositories, immutable snapshots, extracted Python intelligence, retrieval units, and index
@@ -98,6 +98,14 @@ The dedicated OSV integration queries exact package versions and persists both n
 - `app/routing`: Laya adapter, route policy, direct controlled execution, and evaluation dataset.
 - `app/dependencies`: manifest extraction, OSV integration, and persisted vulnerability service.
 - `app/models` and `migrations`: relational schema authority.
+- `frontend/src/App.tsx`: snapshot-scoped public workspace and capability views.
+- `frontend/src/api.ts`: typed browser contract for the versioned backend API.
+
+## Public frontend
+
+The static React/Vite application leads users through repository submission, synchronous ingestion, and retrieval indexing before opening a snapshot workspace. The current repository, branch, and immutable commit remain visible across overview, investigation, source exploration, structural graph, dependency, and security views. AI explanations are visually separated from commit-pinned evidence and optional tool traces.
+
+Only repository/snapshot identifiers are retained in browser local storage for refresh recovery. Source, findings, and AI responses are reloaded from the backend and are not persisted by the frontend. Independent workspace requests are failure-isolated so an unavailable retrieval or graph service does not hide otherwise usable snapshot intelligence.
 
 All runtime settings use `REPOLENS_`. `.env.example` documents ingestion and retrieval limits,
 structural source roots, agent safeguards, and Ollama configuration. Compose connects the backend

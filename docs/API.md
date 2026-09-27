@@ -1,4 +1,4 @@
-# Phase 7 API
+# Phase 8 API
 
 The API is rooted at `/api/v1`. Generated OpenAPI is available at `/openapi.json` and interactive documentation at `/docs`.
 
