@@ -39,6 +39,7 @@ class RoutedQueryService:
                 answer=investigation.answer,
                 citations=investigation.citations,
                 tool_trace=investigation.tool_trace,
+                model_runs=investigation.model_runs,
                 investigation=investigation,
             )
         if decision.strategy is RouteStrategy.REPOSITORY_METADATA:

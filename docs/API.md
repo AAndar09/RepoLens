@@ -96,21 +96,24 @@ investigation against a ready snapshot:
 The response contains the validated plan, grounded answer, commit-pinned citations, observable tool
 trace, number of investigation rounds, and termination reason (`completed`, `max_steps`, or
 `no_more_tools`). A failed tool is represented in the trace while other calls continue. Invalid
-model output or unavailable Ollama returns `502`; a non-ready snapshot returns `409`.
+model output or an exhausted configured provider path returns `502`; a non-ready snapshot returns
+`409`. Successful investigation responses include `model_runs` with provider, model, duration,
+success/fallback state, and optional token usage.
 
-The default provider is Ollama at `REPOLENS_OLLAMA_URL`, using `REPOLENS_OLLAMA_MODEL`. Retrieval
-must already be indexed for `search_code`; otherwise that tool fails transparently and the model may
-continue with symbol, source, graph, or metadata tools.
+The intended default provider is Gemini (`REPOLENS_LLM_PROVIDER` and `REPOLENS_LLM_MODEL`), with
+Groq as one configured fallback. OpenRouter and Ollama are optional selections. Provider calls and
+credentials remain server-side. Retrieval must already be indexed for `search_code`; otherwise that
+tool fails transparently and the model may continue with symbol, source, graph, or metadata tools.
 
 ## Routed queries
 
-`POST /api/v1/repositories/{repository_id}/snapshots/{snapshot_id}/queries` classifies a question with local Laya before using existing controlled capabilities:
+`POST /api/v1/repositories/{repository_id}/snapshots/{snapshot_id}/queries` classifies clear query shapes with deterministic rules before using existing controlled capabilities:
 
 ```json
 {"question":"What commit was indexed?"}
 ```
 
-The response includes `routing` (`category`, `strategy`, `confidence`, `fallback_applied`, and `rationale`), answer, citations, and tool trace. Simple metadata, symbol, and retrieval queries may avoid the investigation model. Dependency/security/uncertain queries use the bounded investigator; low-confidence or unavailable Laya classification explicitly falls back there.
+The response includes `routing` (`category`, `strategy`, `confidence`, `fallback_applied`, `router`, and `rationale`), answer, citations, and tool trace. Simple metadata, symbol, and retrieval queries may avoid the investigation model. Dependency, security, ambiguous, and unmatched questions use the bounded cloud investigator.
 
 ## Dependencies and vulnerabilities
 

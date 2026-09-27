@@ -59,9 +59,7 @@ def create_checkout(root: Path) -> None:
     (root / "broken.py").write_text("def broken(:\n    pass\n", encoding="utf-8")
     (root / "binary.py").write_bytes(b"\x00not-python")
     (root / "README.md").write_text("not source", encoding="utf-8")
-    (root / "requirements.txt").write_text(
-        "httpx==0.28.1\npytest>=8\n", encoding="utf-8"
-    )
+    (root / "requirements.txt").write_text("httpx==0.28.1\npytest>=8\n", encoding="utf-8")
     excluded = root / ".venv"
     excluded.mkdir()
     (excluded / "ignored.py").write_text("ignored = True\n", encoding="utf-8")
@@ -92,9 +90,7 @@ def test_ingestion_persists_snapshot_files_symbols_and_imports(
         assert repository.status == RepositoryStatus.READY
 
         dependencies = list(
-            session.scalars(
-                select(SnapshotDependency).order_by(SnapshotDependency.normalized_name)
-            )
+            session.scalars(select(SnapshotDependency).order_by(SnapshotDependency.normalized_name))
         )
         assert [item.normalized_name for item in dependencies] == ["httpx", "pytest"]
         assert dependencies[0].resolved_version == "0.28.1"

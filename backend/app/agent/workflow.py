@@ -1,3 +1,4 @@
+import json
 import logging
 from typing import TypedDict, cast
 
@@ -12,6 +13,7 @@ from app.schemas.investigation import (
     CitationResponse,
     InvestigationPlan,
     InvestigationResponse,
+    ModelRunResponse,
     SufficiencyDecision,
     TerminationReason,
     ToolRequest,
@@ -41,6 +43,21 @@ class EvidenceRecord(BaseModel):
     def prompt_value(self) -> dict[str, object]:
         value = self.model_dump(mode="json", exclude={"citation"})
         value["citation"] = self.citation.model_dump(mode="json") if self.citation else None
+        return value
+
+    def evaluation_prompt_value(self, max_record_chars: int) -> dict[str, object]:
+        """Preserve evidence identity while bounding source-heavy model context."""
+        value = self.prompt_value()
+        serialized_data = json.dumps(value["data"], default=str, separators=(",", ":"))
+        data_limit = max_record_chars // 2
+        if len(serialized_data) > data_limit:
+            value["data"] = {
+                "truncated": True,
+                "preview": serialized_data[:data_limit],
+            }
+        citation = value["citation"]
+        if citation is not None and len(citation["excerpt"]) > data_limit:
+            citation["excerpt"] = citation["excerpt"][:data_limit]
         return value
 
 
@@ -88,7 +105,7 @@ class InvestigationAgent:
         return builder.compile(name="repolens-investigation")
 
     def _plan(self, state: InvestigationState) -> dict[str, object]:
-        plan = self.model.plan(state["question"], self.tools.repository_context())
+        plan = self.model.plan(state["question"], self.tools.planning_context())
         return {"plan": plan, "pending_calls": plan.tool_calls}
 
     def _execute_tools(self, state: InvestigationState) -> dict[str, object]:
@@ -170,10 +187,15 @@ class InvestigationAgent:
     def _evaluate(self, state: InvestigationState) -> dict[str, object]:
         steps_taken = state["steps_taken"]
         remaining_steps = max(0, self.settings.agent_max_steps - steps_taken)
+        evidence = state.get("evidence", [])
+        per_item_data_limit = max(
+            100,
+            self.settings.agent_evaluation_max_evidence_chars // max(1, len(evidence)),
+        )
         decision: SufficiencyDecision = self.model.evaluate(
             state["question"],
             state["plan"],
-            [item.prompt_value() for item in state.get("evidence", [])],
+            [item.evaluation_prompt_value(per_item_data_limit) for item in evidence],
             [item.model_dump(mode="json") for item in state.get("tool_trace", [])],
             remaining_steps,
         )
@@ -197,10 +219,14 @@ class InvestigationAgent:
 
     def _synthesize(self, state: InvestigationState) -> dict[str, object]:
         evidence = state.get("evidence", [])
+        per_item_data_limit = max(
+            100,
+            self.settings.agent_evaluation_max_evidence_chars // max(1, len(evidence)),
+        )
         draft = self.model.synthesize(
             state["question"],
             self.tools.repository_context(),
-            [item.prompt_value() for item in evidence],
+            [item.evaluation_prompt_value(per_item_data_limit) for item in evidence],
         )
         citations = {item.id: item.citation for item in evidence if item.citation is not None}
         unknown_ids = [item for item in draft.citation_ids if item not in citations]
@@ -248,6 +274,10 @@ class InvestigationAgent:
             answer=final["answer"],
             citations=citations,
             tool_trace=final.get("tool_trace", []),
+            model_runs=[
+                ModelRunResponse.model_validate(run.__dict__)
+                for run in getattr(self.model, "runs", [])
+            ],
             steps_taken=final.get("steps_taken", 0),
             termination_reason=final["termination_reason"],
         )

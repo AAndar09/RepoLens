@@ -1,1 +1,1 @@
-"""Laya-backed, bounded query routing."""
+"""Deterministic, bounded query routing."""

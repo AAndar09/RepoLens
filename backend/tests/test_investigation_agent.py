@@ -5,7 +5,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from app.agent.tools import ControlledToolset
-from app.agent.workflow import InvestigationAgent
+from app.agent.workflow import EvidenceRecord, InvestigationAgent
 from app.api.routes.investigations import get_investigation_model
 from app.api.routes.repositories import get_embedding_provider, get_vector_store
 from app.config import Settings
@@ -265,6 +265,35 @@ def test_agent_performs_multiple_lookup_rounds_with_snapshot_citations(
     assert response.citations
     assert all(item.commit_sha == "d" * 40 for item in response.citations)
     assert all("/blob/" + "d" * 40 in item.source_url for item in response.citations)
+
+
+def test_evaluation_evidence_keeps_identity_but_bounds_large_tool_data() -> None:
+    record = EvidenceRecord(
+        id="evidence-1",
+        tool="read_source",
+        title="src/demo.py",
+        data={"content": "x" * 2_000},
+    )
+
+    value = record.evaluation_prompt_value(100)
+
+    assert value["id"] == "evidence-1"
+    assert value["data"]["truncated"] is True
+    assert len(value["data"]["preview"]) == 50
+
+
+def test_planning_context_uses_compact_tool_guidance(session_factory) -> None:
+    settings = Settings(_env_file=None, embedding_dimensions=16)
+    vectors = MemoryVectors()
+    embeddings = HashingEmbeddingProvider(16)
+    with session_factory() as session:
+        repository, snapshot, _, _ = _seed(session)
+        context = _tools(
+            session, settings, repository, snapshot, vectors, embeddings
+        ).planning_context()
+
+    assert context["owner"] == "acme"
+    assert "arguments_schema" not in context["available_actions"]["search_code"]
 
 
 def test_tool_failure_is_observable_and_does_not_abort(session_factory) -> None:

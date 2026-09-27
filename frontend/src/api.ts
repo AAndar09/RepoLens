@@ -76,10 +76,15 @@ export interface ToolTrace {
   purpose: string; status: 'success' | 'error'; summary: string | null
   error: string | null; evidence_ids: string[]
 }
+export interface ModelRun {
+  operation: string; provider: string; model: string; duration_ms: number
+  success: boolean; fallback_used: boolean; input_tokens: number | null
+  output_tokens: number | null; total_tokens: number | null; error_type: string | null
+}
 export interface RoutedQueryResponse {
   repository_id: string; snapshot_id: string; commit_sha: string; question: string
   routing: Record<string, unknown>; answer: string; citations: Citation[]
-  tool_trace: ToolTrace[]; investigation: unknown | null
+  tool_trace: ToolTrace[]; model_runs: ModelRun[]; investigation: unknown | null
 }
 
 interface ApiErrorBody { detail?: string | Array<{ msg: string }> }

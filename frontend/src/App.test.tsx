@@ -68,6 +68,11 @@ function mockApi() {
       question: 'Where is validation?',
       routing: { category: 'implementation', strategy: 'hybrid_retrieval', confidence: 0.91 },
       answer: 'Validation is performed at the repository submission boundary.',
+      model_runs: [{
+        operation: 'AnswerDraft', provider: 'gemini', model: 'gemini-3.8-flash',
+        duration_ms: 410, success: true, fallback_used: false,
+        input_tokens: 100, output_tokens: 20, total_tokens: 120, error_type: null,
+      }],
       citations: [{
         id: 'evidence-1', snapshot_id: snapshot.id, commit_sha: snapshot.commit_sha,
         filepath: 'app/schemas/repository.py', start_line: 10, end_line: 30,
@@ -144,5 +149,7 @@ describe('App', () => {
     expect(screen.getByRole('link', { name: /RepositorySubmission/ })).toHaveAttribute(
       'href', expect.stringContaining(snapshot.commit_sha),
     )
+    await user.click(screen.getByRole('button', { name: /developer trace/ }))
+    expect(screen.getByText(/gemini · gemini-3.8-flash/)).toBeInTheDocument()
   })
 })

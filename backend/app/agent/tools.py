@@ -91,6 +91,26 @@ def tool_catalog() -> dict[str, object]:
     }
 
 
+def planning_context() -> dict[str, object]:
+    """Compact, model-facing tool guidance; full schemas stay at the execution boundary."""
+    return {
+        "repository_id": str,
+        "snapshot_id": str,
+        "available_actions": {
+            "search_code": (
+                "query required; optional mode semantic|hybrid, limit, filepath, filepath_prefix, "
+                "symbol_kind"
+            ),
+            "lookup_symbol": "name required; optional kind, limit",
+            "read_source": "filepath required; optional start_line, end_line",
+            "structural_lookup": "operation and entity_id required; optional limit",
+            "repository_metadata": "no arguments",
+            "list_dependencies": "optional package, resolved_only, limit",
+            "check_vulnerabilities": "optional package, refresh, limit",
+        },
+    }
+
+
 class ControlledToolset:
     def __init__(
         self,
@@ -121,6 +141,20 @@ class ControlledToolset:
             "commit_sha": self.snapshot.commit_sha,
             "tools": tool_catalog(),
         }
+
+    def planning_context(self) -> dict[str, object]:
+        context = planning_context()
+        context.update(
+            {
+                "repository_id": str(self.repository.id),
+                "owner": self.repository.owner,
+                "name": self.repository.name,
+                "snapshot_id": str(self.snapshot.id),
+                "branch": self.snapshot.branch,
+                "commit_sha": self.snapshot.commit_sha,
+            }
+        )
+        return context
 
     def _source_url(self, filepath: str, start_line: int, end_line: int) -> str:
         fragment = f"#L{start_line}"

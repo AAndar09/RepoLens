@@ -1,6 +1,6 @@
 from functools import lru_cache
 
-from pydantic import Field
+from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -33,16 +33,24 @@ class Settings(BaseSettings):
     retrieval_lexical_candidate_limit: int = Field(default=5_000, ge=1)
     retrieval_hybrid_rrf_k: int = Field(default=60, ge=1)
     graph_source_roots: str = "src"
-    agent_model_provider: str = "ollama"
+    llm_provider: str = "gemini"
+    llm_model: str = "gemini-3.5-flash-lite"
+    llm_fallback_provider: str = "groq"
+    llm_fallback_model: str = "openai/gpt-oss-20b"
+    llm_timeout_seconds: int = Field(default=90, ge=1, le=600)
+    gemini_api_key: SecretStr | None = None
+    gemini_base_url: str = "https://generativelanguage.googleapis.com"
+    groq_api_key: SecretStr | None = None
+    groq_base_url: str = "https://api.groq.com/openai/v1"
+    openrouter_api_key: SecretStr | None = None
+    openrouter_base_url: str = "https://openrouter.ai/api/v1"
+    openrouter_site_url: str | None = None
     ollama_url: str = "http://localhost:11434"
-    ollama_model: str = "qwen2.5-coder:7b"
-    agent_model_timeout_seconds: int = Field(default=120, ge=1, le=600)
     agent_max_steps: int = Field(default=4, ge=1, le=10)
     agent_max_tool_calls_per_step: int = Field(default=4, ge=1, le=10)
     agent_max_evidence_items: int = Field(default=30, ge=1, le=100)
     agent_max_source_lines: int = Field(default=400, ge=1, le=2_000)
-    routing_confidence_threshold: float = Field(default=0.70, ge=0, le=1)
-    routing_laya_model: str = "typed-decisions"
+    agent_evaluation_max_evidence_chars: int = Field(default=16_000, ge=1_000, le=100_000)
     osv_api_url: str = "https://api.osv.dev"
     osv_timeout_seconds: int = Field(default=20, ge=1, le=120)
     osv_max_results_per_dependency: int = Field(default=100, ge=1, le=500)
