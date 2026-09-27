@@ -16,11 +16,14 @@ docker compose up --build
 
 Open the [frontend](http://localhost:5173), [API docs](http://localhost:8000/docs), or
 [Qdrant dashboard](http://localhost:6333/dashboard). Submit and ingest a small repository such as
-`https://github.com/pypa/sampleproject`, then build its retrieval index through the API.
+`https://github.com/pypa/sampleproject`. The frontend ingests it, builds its retrieval index, and
+opens the repository workspace without requiring the API console.
 
 Investigations use a local Ollama model by default. Install Ollama on the host and run
 `ollama pull qwen2.5-coder:7b`, then call the snapshot investigation endpoint in the API docs.
-The agent and routed-query APIs are available through API docs; the frontend still exposes submission and ingestion. Laya is installed with the backend and lazily downloads/loads its local routing model on the first routed query.
+The workspace exposes source/symbol exploration, structural imports, dependency inventory, OSV
+findings, routed repository questions, commit-pinned evidence, and optional tool traces. Laya is
+installed with the backend and lazily downloads/loads its local routing model on the first query.
 
 Stop with `docker compose down`. Use `--volumes` only to intentionally erase local PostgreSQL and
 Qdrant data.
