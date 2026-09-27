@@ -70,4 +70,21 @@ npm test
 npm run build
 ```
 
+## Evaluation
+
+Versioned, commit-pinned benchmark datasets and the deterministic evaluation CLI live under
+`backend/evaluations`. After ingesting and indexing the exact dataset snapshot, compare semantic
+and hybrid retrieval with:
+
+```bash
+docker compose exec backend python -m app.evaluation.cli \
+  evaluations/datasets/v1/sampleproject.json \
+  --configuration semantic --configuration hybrid \
+  --output evaluations/results/sampleproject.json
+```
+
+Reports include raw ranked evidence, Recall@K, citation metadata correctness, symbol/routing/direct
+tool-selection accuracy, latency, and configuration deltas. See [evaluation documentation](docs/evaluation.md)
+for metric definitions and reproducibility constraints.
+
 See [architecture](docs/architecture.md), [API](docs/API.md), and [ADRs](docs/adr).

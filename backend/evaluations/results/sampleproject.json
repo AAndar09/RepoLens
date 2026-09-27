@@ -1,0 +1,708 @@
+{
+  "report_schema_version": 1,
+  "generated_at": "2026-09-27T23:32:38.822296Z",
+  "dataset_id": "sampleproject.python.v1",
+  "dataset_schema_version": 1,
+  "dataset_sha256": "4829682e351301f21e8f862c74e34961fc044f942fbc3daf00f88a62c92f87be",
+  "embedding_provider": "hashing",
+  "embedding_dimensions": 384,
+  "configurations": [
+    "semantic",
+    "hybrid"
+  ],
+  "k_values": [
+    1,
+    3,
+    5
+  ],
+  "snapshot_ids": {
+    "pypa/sampleproject@621e4974ca25ce531773def586ba3ed8e736b3fc": "c4b635f5-002f-43c7-a840-2cddb2d55619"
+  },
+  "retrieval_cases": [
+    {
+      "case_id": "add-one-implementation",
+      "repository": "https://github.com/pypa/sampleproject",
+      "commit": "621e4974ca25ce531773def586ba3ed8e736b3fc",
+      "question": "How is add_one implemented?",
+      "question_type": "implementation",
+      "configuration": "semantic",
+      "latency_ms": 20.826,
+      "recall_at_k": {
+        "1": 1.0,
+        "3": 1.0,
+        "5": 1.0
+      },
+      "citation_correctness_at_k": {
+        "1": 1.0,
+        "3": 0.333333,
+        "5": 0.4
+      },
+      "evidence": [
+        {
+          "rank": 1,
+          "filepath": "src/sample/simple.py",
+          "symbol_name": "add_one",
+          "qualified_name": "src.sample.simple.add_one",
+          "start_line": 1,
+          "end_line": 2,
+          "source_url": "https://github.com/pypa/sampleproject/blob/621e4974ca25ce531773def586ba3ed8e736b3fc/src/sample/simple.py#L1-L2",
+          "semantic_score": 0.4378843,
+          "lexical_score": null,
+          "hybrid_score": null
+        },
+        {
+          "rank": 2,
+          "filepath": "tests/test_simple.py",
+          "symbol_name": "test_add_one",
+          "qualified_name": "tests.test_simple.TestSimple.test_add_one",
+          "start_line": 12,
+          "end_line": 13,
+          "source_url": "https://github.com/pypa/sampleproject/blob/621e4974ca25ce531773def586ba3ed8e736b3fc/tests/test_simple.py#L12-L13",
+          "semantic_score": 0.3709265,
+          "lexical_score": null,
+          "hybrid_score": null
+        },
+        {
+          "rank": 3,
+          "filepath": "tests/test_simple.py",
+          "symbol_name": "test_simple",
+          "qualified_name": "tests.test_simple",
+          "start_line": 1,
+          "end_line": 17,
+          "source_url": "https://github.com/pypa/sampleproject/blob/621e4974ca25ce531773def586ba3ed8e736b3fc/tests/test_simple.py#L1-L17",
+          "semantic_score": 0.24522065,
+          "lexical_score": null,
+          "hybrid_score": null
+        },
+        {
+          "rank": 4,
+          "filepath": "src/sample/simple.py",
+          "symbol_name": "simple",
+          "qualified_name": "src.sample.simple",
+          "start_line": 1,
+          "end_line": 2,
+          "source_url": "https://github.com/pypa/sampleproject/blob/621e4974ca25ce531773def586ba3ed8e736b3fc/src/sample/simple.py#L1-L2",
+          "semantic_score": 0.22238262,
+          "lexical_score": null,
+          "hybrid_score": null
+        },
+        {
+          "rank": 5,
+          "filepath": "tests/test_simple.py",
+          "symbol_name": "TestSimple",
+          "qualified_name": "tests.test_simple.TestSimple",
+          "start_line": 10,
+          "end_line": 13,
+          "source_url": "https://github.com/pypa/sampleproject/blob/621e4974ca25ce531773def586ba3ed8e736b3fc/tests/test_simple.py#L10-L13",
+          "semantic_score": 0.20728847,
+          "lexical_score": null,
+          "hybrid_score": null
+        }
+      ]
+    },
+    {
+      "case_id": "add-one-implementation",
+      "repository": "https://github.com/pypa/sampleproject",
+      "commit": "621e4974ca25ce531773def586ba3ed8e736b3fc",
+      "question": "How is add_one implemented?",
+      "question_type": "implementation",
+      "configuration": "hybrid",
+      "latency_ms": 11.476,
+      "recall_at_k": {
+        "1": 0.0,
+        "3": 1.0,
+        "5": 1.0
+      },
+      "citation_correctness_at_k": {
+        "1": 0.0,
+        "3": 0.333333,
+        "5": 0.2
+      },
+      "evidence": [
+        {
+          "rank": 1,
+          "filepath": "tests/test_simple.py",
+          "symbol_name": "test_simple",
+          "qualified_name": "tests.test_simple",
+          "start_line": 1,
+          "end_line": 17,
+          "source_url": "https://github.com/pypa/sampleproject/blob/621e4974ca25ce531773def586ba3ed8e736b3fc/tests/test_simple.py#L1-L17",
+          "semantic_score": 0.24522065,
+          "lexical_score": 1.039444915467244,
+          "hybrid_score": 0.032266458495966696
+        },
+        {
+          "rank": 2,
+          "filepath": "tests/test_simple.py",
+          "symbol_name": "test_add_one",
+          "qualified_name": "tests.test_simple.TestSimple.test_add_one",
+          "start_line": 12,
+          "end_line": 13,
+          "source_url": "https://github.com/pypa/sampleproject/blob/621e4974ca25ce531773def586ba3ed8e736b3fc/tests/test_simple.py#L12-L13",
+          "semantic_score": 0.3709265,
+          "lexical_score": 0.9545177444479563,
+          "hybrid_score": 0.03225806451612903
+        },
+        {
+          "rank": 3,
+          "filepath": "src/sample/simple.py",
+          "symbol_name": "add_one",
+          "qualified_name": "src.sample.simple.add_one",
+          "start_line": 1,
+          "end_line": 2,
+          "source_url": "https://github.com/pypa/sampleproject/blob/621e4974ca25ce531773def586ba3ed8e736b3fc/src/sample/simple.py#L1-L2",
+          "semantic_score": 0.4378843,
+          "lexical_score": 0.839444915467244,
+          "hybrid_score": 0.032018442622950824
+        },
+        {
+          "rank": 4,
+          "filepath": "noxfile.py",
+          "symbol_name": "noxfile",
+          "qualified_name": "noxfile",
+          "start_line": 1,
+          "end_line": 53,
+          "source_url": "https://github.com/pypa/sampleproject/blob/621e4974ca25ce531773def586ba3ed8e736b3fc/noxfile.py#L1-L53",
+          "semantic_score": 0.09567795,
+          "lexical_score": 0.8969813299575999,
+          "hybrid_score": 0.031024531024531024
+        },
+        {
+          "rank": 5,
+          "filepath": "tests/test_simple.py",
+          "symbol_name": "TestSimple",
+          "qualified_name": "tests.test_simple.TestSimple",
+          "start_line": 10,
+          "end_line": 13,
+          "source_url": "https://github.com/pypa/sampleproject/blob/621e4974ca25ce531773def586ba3ed8e736b3fc/tests/test_simple.py#L10-L13",
+          "semantic_score": 0.20728847,
+          "lexical_score": 0.6772588722239782,
+          "hybrid_score": 0.03076923076923077
+        }
+      ]
+    },
+    {
+      "case_id": "add-one-symbol",
+      "repository": "https://github.com/pypa/sampleproject",
+      "commit": "621e4974ca25ce531773def586ba3ed8e736b3fc",
+      "question": "Where is `add_one` defined?",
+      "question_type": "symbol_lookup",
+      "configuration": "semantic",
+      "latency_ms": 6.068,
+      "recall_at_k": {
+        "1": 1.0,
+        "3": 1.0,
+        "5": 1.0
+      },
+      "citation_correctness_at_k": {
+        "1": 1.0,
+        "3": 0.333333,
+        "5": 0.4
+      },
+      "evidence": [
+        {
+          "rank": 1,
+          "filepath": "src/sample/simple.py",
+          "symbol_name": "add_one",
+          "qualified_name": "src.sample.simple.add_one",
+          "start_line": 1,
+          "end_line": 2,
+          "source_url": "https://github.com/pypa/sampleproject/blob/621e4974ca25ce531773def586ba3ed8e736b3fc/src/sample/simple.py#L1-L2",
+          "semantic_score": 0.40466,
+          "lexical_score": null,
+          "hybrid_score": null
+        },
+        {
+          "rank": 2,
+          "filepath": "tests/test_simple.py",
+          "symbol_name": "test_add_one",
+          "qualified_name": "tests.test_simple.TestSimple.test_add_one",
+          "start_line": 12,
+          "end_line": 13,
+          "source_url": "https://github.com/pypa/sampleproject/blob/621e4974ca25ce531773def586ba3ed8e736b3fc/tests/test_simple.py#L12-L13",
+          "semantic_score": 0.34987462,
+          "lexical_score": null,
+          "hybrid_score": null
+        },
+        {
+          "rank": 3,
+          "filepath": "tests/test_simple.py",
+          "symbol_name": "test_simple",
+          "qualified_name": "tests.test_simple",
+          "start_line": 1,
+          "end_line": 17,
+          "source_url": "https://github.com/pypa/sampleproject/blob/621e4974ca25ce531773def586ba3ed8e736b3fc/tests/test_simple.py#L1-L17",
+          "semantic_score": 0.24338634,
+          "lexical_score": null,
+          "hybrid_score": null
+        },
+        {
+          "rank": 4,
+          "filepath": "tests/test_simple.py",
+          "symbol_name": "TestSimple",
+          "qualified_name": "tests.test_simple.TestSimple",
+          "start_line": 10,
+          "end_line": 13,
+          "source_url": "https://github.com/pypa/sampleproject/blob/621e4974ca25ce531773def586ba3ed8e736b3fc/tests/test_simple.py#L10-L13",
+          "semantic_score": 0.17056058,
+          "lexical_score": null,
+          "hybrid_score": null
+        },
+        {
+          "rank": 5,
+          "filepath": "src/sample/simple.py",
+          "symbol_name": "simple",
+          "qualified_name": "src.sample.simple",
+          "start_line": 1,
+          "end_line": 2,
+          "source_url": "https://github.com/pypa/sampleproject/blob/621e4974ca25ce531773def586ba3ed8e736b3fc/src/sample/simple.py#L1-L2",
+          "semantic_score": 0.16549551,
+          "lexical_score": null,
+          "hybrid_score": null
+        }
+      ]
+    },
+    {
+      "case_id": "add-one-symbol",
+      "repository": "https://github.com/pypa/sampleproject",
+      "commit": "621e4974ca25ce531773def586ba3ed8e736b3fc",
+      "question": "Where is `add_one` defined?",
+      "question_type": "symbol_lookup",
+      "configuration": "hybrid",
+      "latency_ms": 8.046,
+      "recall_at_k": {
+        "1": 1.0,
+        "3": 1.0,
+        "5": 1.0
+      },
+      "citation_correctness_at_k": {
+        "1": 1.0,
+        "3": 0.333333,
+        "5": 0.2
+      },
+      "evidence": [
+        {
+          "rank": 1,
+          "filepath": "src/sample/simple.py",
+          "symbol_name": "add_one",
+          "qualified_name": "src.sample.simple.add_one",
+          "start_line": 1,
+          "end_line": 2,
+          "source_url": "https://github.com/pypa/sampleproject/blob/621e4974ca25ce531773def586ba3ed8e736b3fc/src/sample/simple.py#L1-L2",
+          "semantic_score": 0.40466,
+          "lexical_score": 0.839444915467244,
+          "hybrid_score": 0.032266458495966696
+        },
+        {
+          "rank": 2,
+          "filepath": "tests/test_simple.py",
+          "symbol_name": "test_simple",
+          "qualified_name": "tests.test_simple",
+          "start_line": 1,
+          "end_line": 17,
+          "source_url": "https://github.com/pypa/sampleproject/blob/621e4974ca25ce531773def586ba3ed8e736b3fc/tests/test_simple.py#L1-L17",
+          "semantic_score": 0.24338634,
+          "lexical_score": 1.039444915467244,
+          "hybrid_score": 0.032266458495966696
+        },
+        {
+          "rank": 3,
+          "filepath": "tests/test_simple.py",
+          "symbol_name": "test_add_one",
+          "qualified_name": "tests.test_simple.TestSimple.test_add_one",
+          "start_line": 12,
+          "end_line": 13,
+          "source_url": "https://github.com/pypa/sampleproject/blob/621e4974ca25ce531773def586ba3ed8e736b3fc/tests/test_simple.py#L12-L13",
+          "semantic_score": 0.34987462,
+          "lexical_score": 0.9545177444479563,
+          "hybrid_score": 0.03225806451612903
+        },
+        {
+          "rank": 4,
+          "filepath": "tests/test_simple.py",
+          "symbol_name": "TestSimple",
+          "qualified_name": "tests.test_simple.TestSimple",
+          "start_line": 10,
+          "end_line": 13,
+          "source_url": "https://github.com/pypa/sampleproject/blob/621e4974ca25ce531773def586ba3ed8e736b3fc/tests/test_simple.py#L10-L13",
+          "semantic_score": 0.17056058,
+          "lexical_score": 0.6772588722239782,
+          "hybrid_score": 0.031009615384615385
+        },
+        {
+          "rank": 5,
+          "filepath": "noxfile.py",
+          "symbol_name": "noxfile",
+          "qualified_name": "noxfile",
+          "start_line": 1,
+          "end_line": 53,
+          "source_url": "https://github.com/pypa/sampleproject/blob/621e4974ca25ce531773def586ba3ed8e736b3fc/noxfile.py#L1-L53",
+          "semantic_score": 0.08207002,
+          "lexical_score": 0.6969813299576001,
+          "hybrid_score": 0.03055037313432836
+        }
+      ]
+    },
+    {
+      "case_id": "add-one-test",
+      "repository": "https://github.com/pypa/sampleproject",
+      "commit": "621e4974ca25ce531773def586ba3ed8e736b3fc",
+      "question": "Which test verifies add_one?",
+      "question_type": "test_location",
+      "configuration": "semantic",
+      "latency_ms": 5.841,
+      "recall_at_k": {
+        "1": 1.0,
+        "3": 1.0,
+        "5": 1.0
+      },
+      "citation_correctness_at_k": {
+        "1": 1.0,
+        "3": 0.666667,
+        "5": 0.6
+      },
+      "evidence": [
+        {
+          "rank": 1,
+          "filepath": "tests/test_simple.py",
+          "symbol_name": "test_add_one",
+          "qualified_name": "tests.test_simple.TestSimple.test_add_one",
+          "start_line": 12,
+          "end_line": 13,
+          "source_url": "https://github.com/pypa/sampleproject/blob/621e4974ca25ce531773def586ba3ed8e736b3fc/tests/test_simple.py#L12-L13",
+          "semantic_score": 0.5918165,
+          "lexical_score": null,
+          "hybrid_score": null
+        },
+        {
+          "rank": 2,
+          "filepath": "tests/test_simple.py",
+          "symbol_name": "TestSimple",
+          "qualified_name": "tests.test_simple.TestSimple",
+          "start_line": 10,
+          "end_line": 13,
+          "source_url": "https://github.com/pypa/sampleproject/blob/621e4974ca25ce531773def586ba3ed8e736b3fc/tests/test_simple.py#L10-L13",
+          "semantic_score": 0.45561713,
+          "lexical_score": null,
+          "hybrid_score": null
+        },
+        {
+          "rank": 3,
+          "filepath": "src/sample/simple.py",
+          "symbol_name": "add_one",
+          "qualified_name": "src.sample.simple.add_one",
+          "start_line": 1,
+          "end_line": 2,
+          "source_url": "https://github.com/pypa/sampleproject/blob/621e4974ca25ce531773def586ba3ed8e736b3fc/src/sample/simple.py#L1-L2",
+          "semantic_score": 0.3590749,
+          "lexical_score": null,
+          "hybrid_score": null
+        },
+        {
+          "rank": 4,
+          "filepath": "tests/test_simple.py",
+          "symbol_name": "test_simple",
+          "qualified_name": "tests.test_simple",
+          "start_line": 1,
+          "end_line": 17,
+          "source_url": "https://github.com/pypa/sampleproject/blob/621e4974ca25ce531773def586ba3ed8e736b3fc/tests/test_simple.py#L1-L17",
+          "semantic_score": 0.3571173,
+          "lexical_score": null,
+          "hybrid_score": null
+        },
+        {
+          "rank": 5,
+          "filepath": "noxfile.py",
+          "symbol_name": "noxfile",
+          "qualified_name": "noxfile",
+          "start_line": 1,
+          "end_line": 53,
+          "source_url": "https://github.com/pypa/sampleproject/blob/621e4974ca25ce531773def586ba3ed8e736b3fc/noxfile.py#L1-L53",
+          "semantic_score": 0.16942756,
+          "lexical_score": null,
+          "hybrid_score": null
+        }
+      ]
+    },
+    {
+      "case_id": "add-one-test",
+      "repository": "https://github.com/pypa/sampleproject",
+      "commit": "621e4974ca25ce531773def586ba3ed8e736b3fc",
+      "question": "Which test verifies add_one?",
+      "question_type": "test_location",
+      "configuration": "hybrid",
+      "latency_ms": 9.031,
+      "recall_at_k": {
+        "1": 1.0,
+        "3": 1.0,
+        "5": 1.0
+      },
+      "citation_correctness_at_k": {
+        "1": 1.0,
+        "3": 1.0,
+        "5": 0.6
+      },
+      "evidence": [
+        {
+          "rank": 1,
+          "filepath": "tests/test_simple.py",
+          "symbol_name": "test_add_one",
+          "qualified_name": "tests.test_simple.TestSimple.test_add_one",
+          "start_line": 12,
+          "end_line": 13,
+          "source_url": "https://github.com/pypa/sampleproject/blob/621e4974ca25ce531773def586ba3ed8e736b3fc/tests/test_simple.py#L12-L13",
+          "semantic_score": 0.5918165,
+          "lexical_score": 1.5704060527839236,
+          "hybrid_score": 0.03278688524590164
+        },
+        {
+          "rank": 2,
+          "filepath": "tests/test_simple.py",
+          "symbol_name": "TestSimple",
+          "qualified_name": "tests.test_simple.TestSimple",
+          "start_line": 10,
+          "end_line": 13,
+          "source_url": "https://github.com/pypa/sampleproject/blob/621e4974ca25ce531773def586ba3ed8e736b3fc/tests/test_simple.py#L10-L13",
+          "semantic_score": 0.45561713,
+          "lexical_score": 1.3377758908227873,
+          "hybrid_score": 0.03200204813108039
+        },
+        {
+          "rank": 3,
+          "filepath": "tests/test_simple.py",
+          "symbol_name": "test_simple",
+          "qualified_name": "tests.test_simple",
+          "start_line": 1,
+          "end_line": 17,
+          "source_url": "https://github.com/pypa/sampleproject/blob/621e4974ca25ce531773def586ba3ed8e736b3fc/tests/test_simple.py#L1-L17",
+          "semantic_score": 0.3571173,
+          "lexical_score": 1.5672563813902955,
+          "hybrid_score": 0.031754032258064516
+        },
+        {
+          "rank": 4,
+          "filepath": "src/sample/simple.py",
+          "symbol_name": "add_one",
+          "qualified_name": "src.sample.simple.add_one",
+          "start_line": 1,
+          "end_line": 2,
+          "source_url": "https://github.com/pypa/sampleproject/blob/621e4974ca25ce531773def586ba3ed8e736b3fc/src/sample/simple.py#L1-L2",
+          "semantic_score": 0.3590749,
+          "lexical_score": 0.839444915467244,
+          "hybrid_score": 0.03149801587301587
+        },
+        {
+          "rank": 5,
+          "filepath": "noxfile.py",
+          "symbol_name": "noxfile",
+          "qualified_name": "noxfile",
+          "start_line": 1,
+          "end_line": 53,
+          "source_url": "https://github.com/pypa/sampleproject/blob/621e4974ca25ce531773def586ba3ed8e736b3fc/noxfile.py#L1-L53",
+          "semantic_score": 0.16942756,
+          "lexical_score": 0.5891820298110627,
+          "hybrid_score": 0.03076923076923077
+        }
+      ]
+    }
+  ],
+  "retrieval_summaries": [
+    {
+      "configuration": "semantic",
+      "case_count": 3,
+      "mean_recall_at_k": {
+        "1": 1.0,
+        "3": 1.0,
+        "5": 1.0
+      },
+      "mean_citation_correctness_at_k": {
+        "1": 1.0,
+        "3": 0.444444,
+        "5": 0.466667
+      },
+      "latency": {
+        "sample_count": 3,
+        "mean_ms": 10.912,
+        "median_ms": 6.068,
+        "p95_ms": 20.826
+      }
+    },
+    {
+      "configuration": "hybrid",
+      "case_count": 3,
+      "mean_recall_at_k": {
+        "1": 0.666667,
+        "3": 1.0,
+        "5": 1.0
+      },
+      "mean_citation_correctness_at_k": {
+        "1": 0.666667,
+        "3": 0.555555,
+        "5": 0.333333
+      },
+      "latency": {
+        "sample_count": 3,
+        "mean_ms": 9.518,
+        "median_ms": 9.031,
+        "p95_ms": 11.476
+      }
+    }
+  ],
+  "retrieval_comparisons": [
+    {
+      "baseline": "semantic",
+      "contender": "hybrid",
+      "recall_delta_at_k": {
+        "1": -0.333333,
+        "3": 0.0,
+        "5": 0.0
+      },
+      "citation_correctness_delta_at_k": {
+        "1": -0.333333,
+        "3": 0.111111,
+        "5": -0.133334
+      }
+    }
+  ],
+  "routing_cases": [
+    {
+      "case_id": "add-one-implementation",
+      "expected_category": "implementation",
+      "actual_category": "implementation",
+      "expected_strategy": "hybrid_retrieval",
+      "actual_strategy": "hybrid_retrieval",
+      "category_correct": true,
+      "strategy_correct": true,
+      "latency_ms": 1.629
+    },
+    {
+      "case_id": "add-one-symbol",
+      "expected_category": "symbol_lookup",
+      "actual_category": "symbol_lookup",
+      "expected_strategy": "direct_symbol_lookup",
+      "actual_strategy": "direct_symbol_lookup",
+      "category_correct": true,
+      "strategy_correct": true,
+      "latency_ms": 0.016
+    },
+    {
+      "case_id": "add-one-test",
+      "expected_category": "unknown",
+      "actual_category": "unknown",
+      "expected_strategy": "full_investigation",
+      "actual_strategy": "full_investigation",
+      "category_correct": true,
+      "strategy_correct": true,
+      "latency_ms": 0.631
+    },
+    {
+      "case_id": "indexed-commit",
+      "expected_category": "repository_metadata",
+      "actual_category": "repository_metadata",
+      "expected_strategy": "repository_metadata",
+      "actual_strategy": "repository_metadata",
+      "category_correct": true,
+      "strategy_correct": true,
+      "latency_ms": 0.126
+    }
+  ],
+  "routing_category": {
+    "measured_cases": 4,
+    "accuracy": 1.0,
+    "latency": {
+      "sample_count": 4,
+      "mean_ms": 0.601,
+      "median_ms": 0.379,
+      "p95_ms": 1.629
+    }
+  },
+  "routing_strategy": {
+    "measured_cases": 4,
+    "accuracy": 1.0,
+    "latency": {
+      "sample_count": 4,
+      "mean_ms": 0.601,
+      "median_ms": 0.379,
+      "p95_ms": 1.629
+    }
+  },
+  "symbol_lookup_cases": [
+    {
+      "case_id": "add-one-symbol",
+      "query": "add_one",
+      "expected_symbols": [
+        "src.sample.simple.add_one"
+      ],
+      "returned_symbols": [
+        "src.sample.simple.add_one"
+      ],
+      "correct": true,
+      "latency_ms": 6.651
+    },
+    {
+      "case_id": "add-one-test",
+      "query": "test_add_one",
+      "expected_symbols": [
+        "tests.test_simple.TestSimple.test_add_one"
+      ],
+      "returned_symbols": [
+        "tests.test_simple.TestSimple.test_add_one"
+      ],
+      "correct": true,
+      "latency_ms": 3.965
+    }
+  ],
+  "symbol_lookup": {
+    "measured_cases": 2,
+    "accuracy": 1.0,
+    "latency": {
+      "sample_count": 2,
+      "mean_ms": 5.308,
+      "median_ms": 5.308,
+      "p95_ms": 6.651
+    }
+  },
+  "tool_selection_cases": [
+    {
+      "case_id": "add-one-implementation",
+      "expected_tools": [
+        "search_code"
+      ],
+      "selected_tool": "search_code",
+      "measured": true,
+      "correct": true
+    },
+    {
+      "case_id": "add-one-symbol",
+      "expected_tools": [
+        "lookup_symbol"
+      ],
+      "selected_tool": "lookup_symbol",
+      "measured": true,
+      "correct": true
+    },
+    {
+      "case_id": "indexed-commit",
+      "expected_tools": [
+        "repository_metadata"
+      ],
+      "selected_tool": "repository_metadata",
+      "measured": true,
+      "correct": true
+    }
+  ],
+  "tool_selection": {
+    "measured_cases": 3,
+    "accuracy": 1.0,
+    "latency": null
+  },
+  "unsupported_configurations": {
+    "hybrid_structural": "Structural graph lookup is a separate controlled tool, not a retrieval ranking configuration in the current architecture.",
+    "reranked": "No production reranker is currently implemented."
+  },
+  "model_assisted_metrics": {
+    "enabled": false,
+    "metrics": {},
+    "note": "Disabled. This report contains deterministic retrieval, citation-metadata, routing, symbol, and direct tool-selection metrics only."
+  }
+}
