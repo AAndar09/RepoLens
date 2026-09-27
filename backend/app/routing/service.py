@@ -1,10 +1,9 @@
 import logging
+import re
 from enum import StrEnum
-from typing import Any, Protocol
+from typing import Protocol
 
 from pydantic import BaseModel, ConfigDict, Field
-
-from app.config import Settings
 
 logger = logging.getLogger(__name__)
 
@@ -35,29 +34,11 @@ class RoutingDecision(BaseModel):
     strategy: RouteStrategy
     rationale: str
     fallback_applied: bool = False
-    router: str = "laya"
+    router: str = "rules"
 
 
 class QueryClassifier(Protocol):
     def classify(self, question: str) -> RoutingDecision: ...
-
-
-_CATEGORY_CRITERIA = {
-    QueryCategory.ARCHITECTURE.value: "System structure, components, and how parts relate.",
-    QueryCategory.IMPLEMENTATION.value: "How code implements a behaviour or algorithm.",
-    QueryCategory.SYMBOL_LOOKUP.value: (
-        "Find or identify a named class, function, method, or module."
-    ),
-    QueryCategory.DEPENDENCY.value: "Imports, dependencies, importers, or module relationships.",
-    QueryCategory.DOCUMENTATION.value: (
-        "Repository documentation, usage, setup, or public interfaces."
-    ),
-    QueryCategory.SECURITY.value: "Potential security properties or risks in indexed source code.",
-    QueryCategory.REPOSITORY_METADATA.value: (
-        "Snapshot identity, branch, commit, or indexed counts."
-    ),
-    QueryCategory.UNKNOWN.value: "Does not clearly match another category.",
-}
 
 
 def strategy_for(category: QueryCategory) -> RouteStrategy:
@@ -74,56 +55,129 @@ def strategy_for(category: QueryCategory) -> RouteStrategy:
     return RouteStrategy.FULL_INVESTIGATION
 
 
-class LayaQueryClassifier:
-    """A lazy adapter so loading Laya's local model never blocks application startup."""
+_CATEGORY_PATTERNS: tuple[tuple[QueryCategory, tuple[str, ...]], ...] = (
+    (
+        QueryCategory.SECURITY,
+        (
+            r"\bsecurity\b",
+            r"\bvulnerab(?:ility|ilities|le)\b",
+            r"\bcve(?:s)?\b",
+            r"\bexploit(?:able|ability)?\b",
+            r"\bunsafe\b",
+        ),
+    ),
+    (
+        QueryCategory.DEPENDENCY,
+        (
+            r"\bdependenc(?:y|ies)\b",
+            r"\bimports?\b",
+            r"\bimporters?\b",
+            r"\bpackages?\b",
+            r"\brequirements(?:\.txt)?\b",
+            r"\bpyproject(?:\.toml)?\b",
+        ),
+    ),
+    (
+        QueryCategory.REPOSITORY_METADATA,
+        (
+            r"\bcommit(?: sha)?\b",
+            r"\bbranch\b",
+            r"\bsnapshot\b",
+            r"\bindexed (?:commit|branch|snapshot)\b",
+            r"\brepository (?:name|owner|url|metadata)\b",
+        ),
+    ),
+    (
+        QueryCategory.DOCUMENTATION,
+        (
+            r"\breadme\b",
+            r"\bdocs?\b",
+            r"\bdocumentation\b",
+            r"\bsetup\b",
+            r"\binstall(?:ation|ed|ing)?\b",
+            r"\bconfigur(?:e|ed|ation|ing)\b",
+            r"\bhow (?:do|can|should) (?:i|we) (?:use|run|start)\b",
+        ),
+    ),
+    (
+        QueryCategory.ARCHITECTURE,
+        (
+            r"\barchitecture\b",
+            r"\bcomponents?\b",
+            r"\blayers?\b",
+            r"\bfit together\b",
+            r"\bcodebase structure\b",
+            r"\bdata flow\b",
+        ),
+    ),
+    (
+        QueryCategory.IMPLEMENTATION,
+        (
+            r"\bimplement(?:ed|ation|ing|s)?\b",
+            r"\benforc(?:e|ed|ement|ing)\b",
+            r"\bvalidat(?:e|ed|es|ion|ing)\b",
+            r"\bwhat happens when\b",
+        ),
+    ),
+)
 
-    def __init__(self, settings: Settings) -> None:
-        self.settings = settings
-        self._router: Any | None = None
+_SYMBOL_LOOKUP = re.compile(
+    r"(?i:\b(?:where is|find|locate|defined|definition of)\b).*"
+    r"(?:`[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*`|"
+    r"'[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*'|"
+    r"\b[A-Z][A-Za-z0-9_]*\b)"
+)
 
-    def _get_router(self) -> Any:
-        if self._router is None:
-            try:
-                from laya import Router
-            except ImportError as exc:  # pragma: no cover - packaging failure guard
-                raise RuntimeError("Laya is not installed in the backend environment") from exc
-            self._router = Router()
-        return self._router
+
+class RuleBasedQueryClassifier:
+    """Classify obvious query shapes without loading or calling an AI model."""
 
     def classify(self, question: str) -> RoutingDecision:
-        try:
-            response = self._get_router().predict(
-                {"question": question},
-                {
-                    "category": {
-                        "type": "choice",
-                        "instructions": (
-                            "Classify the repository question into exactly one category."
-                        ),
-                        "criteria": _CATEGORY_CRITERIA,
-                    }
-                },
-                model=self.settings.routing_laya_model,
+        normalized = " ".join(question.strip().split())
+        lowered = normalized.lower()
+
+        if _SYMBOL_LOOKUP.search(normalized):
+            decision = self._decision(
+                QueryCategory.SYMBOL_LOOKUP,
+                0.95,
+                "Question explicitly requests a named code symbol",
             )
-            category, confidence = self._parse_response(response)
-            decision = RoutingDecision(
-                category=category,
-                confidence=confidence,
-                strategy=strategy_for(category),
-                rationale="Laya typed-decision classification",
-            )
-        except Exception as exc:
-            logger.warning("laya_routing_failed error=%s", exc)
-            decision = RoutingDecision(
-                category=QueryCategory.UNKNOWN,
-                confidence=0,
-                strategy=RouteStrategy.FULL_INVESTIGATION,
-                rationale="Laya was unavailable or returned an unrecognised decision",
-                fallback_applied=True,
-            )
-        decision = self._apply_confidence_fallback(decision)
+        else:
+            matches = [
+                category
+                for category, patterns in _CATEGORY_PATTERNS
+                if any(re.search(pattern, lowered) for pattern in patterns)
+            ]
+            if len(matches) == 1:
+                decision = self._decision(
+                    matches[0],
+                    0.90,
+                    f"Matched deterministic {matches[0].value} query signals",
+                )
+            elif matches:
+                decision = RoutingDecision(
+                    category=matches[0],
+                    confidence=0.50,
+                    strategy=RouteStrategy.FULL_INVESTIGATION,
+                    rationale=(
+                        "Question matched multiple categories; using the general investigation path"
+                    ),
+                    fallback_applied=True,
+                )
+            else:
+                decision = RoutingDecision(
+                    category=QueryCategory.UNKNOWN,
+                    confidence=0,
+                    strategy=RouteStrategy.FULL_INVESTIGATION,
+                    rationale=(
+                        "No deterministic route matched; using the general investigation path"
+                    ),
+                    fallback_applied=True,
+                )
+
         logger.info(
-            "routing_decision category=%s strategy=%s confidence=%.2f fallback=%s",
+            "routing_decision router=%s category=%s strategy=%s confidence=%.2f fallback=%s",
+            decision.router,
             decision.category,
             decision.strategy,
             decision.confidence,
@@ -132,40 +186,12 @@ class LayaQueryClassifier:
         return decision
 
     @staticmethod
-    def _parse_response(response: Any) -> tuple[QueryCategory, float]:
-        """Accept Laya's documented routing envelopes without trusting untyped data."""
-        if hasattr(response, "model_dump"):
-            response = response.model_dump()
-        if not isinstance(response, dict):
-            raise ValueError("Laya response was not an object")
-        payload = response.get("category", response.get("routing", response))
-        if not isinstance(payload, dict):
-            raise ValueError("Laya category payload was not an object")
-        raw_category = payload.get("category") or payload.get("choice")
-        if isinstance(raw_category, dict):
-            raw_category = raw_category.get("value") or raw_category.get("choice")
-        category = QueryCategory(str(raw_category))
-        probabilities = payload.get("probabilities", {})
-        raw_confidence = payload.get("confidence")
-        if raw_confidence is None and isinstance(probabilities, dict):
-            raw_confidence = probabilities.get(raw_category)
-        if raw_confidence is None:
-            raw_confidence = response.get("confidence", 0.0)
-        confidence = float(raw_confidence)
-        if not 0 <= confidence <= 1:
-            raise ValueError("Laya confidence was outside [0, 1]")
-        return category, confidence
-
-    def _apply_confidence_fallback(self, decision: RoutingDecision) -> RoutingDecision:
-        if decision.confidence >= self.settings.routing_confidence_threshold:
-            return decision
-        return decision.model_copy(
-            update={
-                "strategy": RouteStrategy.FULL_INVESTIGATION,
-                "fallback_applied": True,
-                "rationale": (
-                    f"{decision.rationale}; confidence {decision.confidence:.2f} is below "
-                    f"the configured {self.settings.routing_confidence_threshold:.2f} threshold"
-                ),
-            }
+    def _decision(
+        category: QueryCategory, confidence: float, rationale: str
+    ) -> RoutingDecision:
+        return RoutingDecision(
+            category=category,
+            confidence=confidence,
+            strategy=strategy_for(category),
+            rationale=rationale,
         )

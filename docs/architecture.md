@@ -63,23 +63,37 @@ plan -> execute controlled tools -> evaluate evidence --insufficient--> execute 
                                       +--sufficient/terminated--> synthesize
 ```
 
-The model provider is abstracted behind planning, sufficiency, and synthesis contracts. The default
-adapter calls a host Ollama instance and requires JSON-schema-constrained responses validated with
-Pydantic. Planning can select only `search_code`, `lookup_symbol`, `read_source`,
+The investigation model builds planning, sufficiency, and synthesis prompts above a common provider
+contract:
+
+```text
+LangGraph -> provider factory -> Gemini (primary)
+                              -> Groq (one bounded fallback)
+                              -> OpenRouter (optional)
+                              -> Ollama (optional/local)
+```
+
+Gemini uses its native REST API; Groq and OpenRouter share an isolated OpenAI-compatible adapter;
+Ollama uses its local chat API. Groq uses JSON-object mode for RepoLens's flexible tool-argument
+schemas; every provider's structured result is authoritatively validated with Pydantic. Provider/model,
+latency, outcome, fallback use, and available token counts are logged and returned in the developer
+trace. Planning can select only `search_code`, `lookup_symbol`, `read_source`,
 `structural_lookup`, and `repository_metadata`. These wrappers reuse hybrid retrieval and structural
 graph services and carry snapshot context internally; the model never receives shell, filesystem,
 database, Qdrant, or infrastructure credentials.
 
 Every tool call produces a success/error trace. Source evidence receives a stable ID and immutable
 commit URL. Synthesis may cite only returned citable evidence IDs. The workflow enforces configured
-limits for investigation rounds, calls per round, evidence items, and source lines, plus an
-independent LangGraph recursion limit. A tool failure does not terminate other calls.
+limits for investigation rounds, calls per round, evidence items, source lines, and evaluation
+evidence context. Model calls retain evidence IDs and citations but use bounded previews of
+oversized tool data and citation excerpts, keeping provider requests within model/context limits. An independent
+LangGraph recursion limit also applies. A tool failure does not terminate other calls.
 
-## Laya query routing
+## Deterministic query routing
 
-Before a routed query reaches retrieval or the investigation agent, a lazy local Laya typed-decision classifier selects a category and maps it only to existing controlled capabilities: direct metadata, direct symbol lookup, hybrid retrieval, or the bounded LangGraph investigation. It cannot access source files, tools, infrastructure, or credentials.
+Before a routed query reaches retrieval or the investigation agent, a deterministic classifier maps clear lexical signals to existing controlled capabilities: direct metadata, direct symbol lookup, hybrid retrieval, or the bounded LangGraph investigation. It does not load a model or access source files, tools, infrastructure, or credentials.
 
-The response and application log include category, route, confidence, and fallback status. A result below `REPOLENS_ROUTING_CONFIDENCE_THRESHOLD` (default `0.70`), a malformed result, or Laya failure falls back to full investigation. The labelled evaluation dataset measures category and route accuracy.
+The response and application log include category, route, confidence, and fallback status. Questions with no unambiguous deterministic match use full investigation. The labelled evaluation dataset measures category and route accuracy.
 
 ## Dependency and vulnerability intelligence
 
@@ -95,7 +109,7 @@ The dedicated OSV integration queries exact package versions and persists both n
 - `app/retrieval`: units, embeddings, lexical/hybrid strategy, and Qdrant adapter.
 - `app/graph`: deterministic import resolution and bounded structural traversal.
 - `app/agent`: model abstraction, controlled tools, and LangGraph investigation workflow.
-- `app/routing`: Laya adapter, route policy, direct controlled execution, and evaluation dataset.
+- `app/routing`: deterministic route policy, direct controlled execution, and evaluation dataset.
 - `app/dependencies`: manifest extraction, OSV integration, and persisted vulnerability service.
 - `app/models` and `migrations`: relational schema authority.
 - `frontend/src/App.tsx`: snapshot-scoped public workspace and capability views.
@@ -107,8 +121,21 @@ The static React/Vite application leads users through repository submission, syn
 
 Only repository/snapshot identifiers are retained in browser local storage for refresh recovery. Source, findings, and AI responses are reloaded from the backend and are not persisted by the frontend. Independent workspace requests are failure-isolated so an unavailable retrieval or graph service does not hide otherwise usable snapshot intelligence.
 
+The existing developer trace shows non-secret provider/model, duration, fallback, and token metadata
+for generative calls. Provider selection remains server-controlled.
+
 All runtime settings use `REPOLENS_`. `.env.example` documents ingestion and retrieval limits,
-structural source roots, agent safeguards, and Ollama configuration. Compose connects the backend
-to Qdrant and permits access to a host Ollama instance through `host.docker.internal`.
+agent safeguards, provider/model selection, and backend-only credentials. Credentials are validated
+only when their provider is invoked, so unused integrations do not affect startup. Compose connects
+the backend to Qdrant and permits optional host Ollama access through `host.docker.internal`.
+Generative inference never replaces the independent local embedding path.
+
+Generative settings are `REPOLENS_LLM_PROVIDER`, `REPOLENS_LLM_MODEL`,
+`REPOLENS_LLM_FALLBACK_PROVIDER`, `REPOLENS_LLM_FALLBACK_MODEL`, and
+`REPOLENS_LLM_TIMEOUT_SECONDS`. Backend-only credentials are
+`REPOLENS_GEMINI_API_KEY`, `REPOLENS_GROQ_API_KEY`, and
+`REPOLENS_OPENROUTER_API_KEY`. Each cloud integration has a configurable `*_BASE_URL`;
+OpenRouter additionally accepts an optional site URL, and Ollama uses `REPOLENS_OLLAMA_URL`.
+Neither keys nor provider selection are exposed through Vite settings or browser responses.
 
 Background jobs, private repositories, non-Python manifests, dependency resolution/lockfile solving, reachability analysis, conversation memory, and unrestricted agent tools remain out of scope.

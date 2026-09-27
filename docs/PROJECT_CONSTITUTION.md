@@ -23,7 +23,7 @@ It should visibly demonstrate:
 - agent orchestration
 - tool use
 - structured outputs
-- lightweight AI decision routing with Laya
+- observable query classification and routing
 - AST-based code understanding
 - graph/structural retrieval
 - external API integration
@@ -61,7 +61,7 @@ Use:
 - normal APIs for external data
 - search algorithms for retrieval
 
-Use Laya for lightweight classification and routing decisions.
+Use deterministic classification for clear routing decisions and the configured generative model for ambiguous investigation.
 
 Use a generative LLM for ambiguous interpretation, investigation planning and synthesis.
 
@@ -107,16 +107,14 @@ Tool names and implementations may evolve.
 
 ## Decision layer
 
-Laya should have a narrow, defensible role.
-
-Appropriate uses include:
+The routing layer should have a narrow, defensible role. Appropriate deterministic uses include:
 
 - classifying user questions
 - routing queries
 - selecting retrieval strategies
 - deciding whether deeper reasoning is needed
 
-Do not use Laya simply to claim that the project contains an additional AI technology.
+Uncertain questions should follow the bounded general investigation path instead of forcing a narrow route.
 
 ## Models
 

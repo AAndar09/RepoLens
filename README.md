@@ -19,14 +19,43 @@ Open the [frontend](http://localhost:5173), [API docs](http://localhost:8000/doc
 `https://github.com/pypa/sampleproject`. The frontend ingests it, builds its retrieval index, and
 opens the repository workspace without requiring the API console.
 
-Investigations use a local Ollama model by default. Install Ollama on the host and run
-`ollama pull qwen2.5-coder:7b`, then call the snapshot investigation endpoint in the API docs.
+Investigations use configurable backend-only generative inference. The intended demo deployment
+uses Gemini with Groq as a bounded availability fallback. Add `REPOLENS_GEMINI_API_KEY` to `.env`;
+add `REPOLENS_GROQ_API_KEY` only if fallback should be usable. OpenRouter and Ollama remain optional.
+No provider credential is sent to the browser, and missing credentials for unused providers do not
+prevent the application from starting.
+
+To use Ollama locally instead, set `REPOLENS_LLM_PROVIDER=ollama`, set
+`REPOLENS_LLM_MODEL=qwen2.5-coder:7b`, and pull that model on the host. Embeddings remain local and
+independent of the generative provider in every configuration.
 The workspace exposes source/symbol exploration, structural imports, dependency inventory, OSV
-findings, routed repository questions, commit-pinned evidence, and optional tool traces. Laya is
-installed with the backend and lazily downloads/loads its local routing model on the first query.
+findings, deterministically routed repository questions, commit-pinned evidence, and optional tool
+traces. Ambiguous questions use the bounded cloud investigation workflow.
 
 Stop with `docker compose down`. Use `--volumes` only to intentionally erase local PostgreSQL and
 Qdrant data.
+
+## Generative provider configuration
+
+`REPOLENS_LLM_PROVIDER` and `REPOLENS_LLM_MODEL` select the primary. The optional
+`REPOLENS_LLM_FALLBACK_PROVIDER` and `REPOLENS_LLM_FALLBACK_MODEL` select one availability
+fallback; set both empty to disable it. `REPOLENS_LLM_TIMEOUT_SECONDS` applies to each provider
+attempt.
+
+Provider credentials are `REPOLENS_GEMINI_API_KEY`, `REPOLENS_GROQ_API_KEY`, and
+`REPOLENS_OPENROUTER_API_KEY`. Optional endpoint settings are documented in `.env.example`, along
+with `REPOLENS_OPENROUTER_SITE_URL` and `REPOLENS_OLLAMA_URL`. Keys are read only by the backend.
+The checked-in Gemini example uses `gemini-3.5-flash-lite`, which keeps the multi-stage investigation
+workflow responsive and reduces fallback-provider pressure. Model IDs remain entirely configurable.
+
+From `backend`, smoke-test one configured provider manually (never run by CI):
+
+```bash
+python scripts/provider_smoke.py --provider gemini --model gemini-3.5-flash-lite
+python scripts/provider_smoke.py --provider groq --model openai/gpt-oss-20b
+python scripts/provider_smoke.py --provider openrouter --model openai/gpt-oss-20b
+python scripts/provider_smoke.py --provider ollama --model qwen2.5-coder:7b
+```
 
 ## Validation
 

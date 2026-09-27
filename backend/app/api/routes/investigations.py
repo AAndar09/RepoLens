@@ -25,7 +25,7 @@ from app.models.snapshot import RepositorySnapshot, SnapshotStatus
 from app.retrieval.embeddings import EmbeddingProvider
 from app.retrieval.vector_store import VectorStore
 from app.routing.execution import RoutedQueryService
-from app.routing.service import LayaQueryClassifier, RouteStrategy
+from app.routing.service import RouteStrategy, RuleBasedQueryClassifier
 from app.schemas.investigation import (
     InvestigationRequest,
     InvestigationResponse,
@@ -130,7 +130,7 @@ def route_repository_query(
             status_code=status.HTTP_409_CONFLICT,
             detail="Only ready snapshots can be queried",
         )
-    decision = LayaQueryClassifier(settings).classify(request.question)
+    decision = RuleBasedQueryClassifier().classify(request.question)
     tools = ControlledToolset(
         session, settings, repository, snapshot, vector_store, embedding_provider
     )

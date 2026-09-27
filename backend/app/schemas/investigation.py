@@ -116,6 +116,19 @@ class ToolTraceResponse(StrictModel):
     evidence_ids: list[str] = Field(default_factory=list)
 
 
+class ModelRunResponse(StrictModel):
+    operation: str
+    provider: str
+    model: str
+    duration_ms: int
+    success: bool
+    fallback_used: bool
+    input_tokens: int | None = None
+    output_tokens: int | None = None
+    total_tokens: int | None = None
+    error_type: str | None = None
+
+
 class InvestigationRequest(StrictModel):
     question: str = Field(min_length=3, max_length=2_000)
 
@@ -129,6 +142,7 @@ class InvestigationResponse(StrictModel):
     answer: str
     citations: list[CitationResponse]
     tool_trace: list[ToolTraceResponse]
+    model_runs: list[ModelRunResponse] = Field(default_factory=list)
     steps_taken: int
     termination_reason: TerminationReason
 
@@ -146,4 +160,5 @@ class RoutedQueryResponse(StrictModel):
     answer: str
     citations: list[CitationResponse] = Field(default_factory=list)
     tool_trace: list[ToolTraceResponse] = Field(default_factory=list)
+    model_runs: list[ModelRunResponse] = Field(default_factory=list)
     investigation: InvestigationResponse | None = None
