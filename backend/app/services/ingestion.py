@@ -13,7 +13,7 @@ from typing import Protocol
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.analysis.python_ast import PythonAnalysis, analyze_python, module_name_from_path
+from app.analysis.python_ast import analyze_python, module_name_from_path
 from app.config import Settings
 from app.dependencies.extraction import ExtractedDependency, PythonDependencyExtractor
 from app.graph.service import StructuralGraphService
@@ -41,7 +41,6 @@ class CandidateFile:
     sha256: str
     size_bytes: int
     line_count: int
-    analysis: PythonAnalysis
 
 
 @dataclass
@@ -140,7 +139,6 @@ class RepositoryIngestionService:
                     sha256=hashlib.sha256(data).hexdigest(),
                     size_bytes=len(data),
                     line_count=len(content.splitlines()),
-                    analysis=analyze_python(content, relative_path),
                 )
             )
             result.total_bytes += len(data)
@@ -188,54 +186,144 @@ class RepositoryIngestionService:
         self.session.refresh(snapshot)
         return snapshot, False
 
-    def _persist_scan(self, snapshot: RepositorySnapshot, result: ScanResult) -> None:
+    def _previous_snapshot(
+        self, repository: Repository, commit_sha: str
+    ) -> RepositorySnapshot | None:
+        return self.session.scalar(
+            select(RepositorySnapshot)
+            .where(
+                RepositorySnapshot.repository_id == repository.id,
+                RepositorySnapshot.commit_sha != commit_sha,
+                RepositorySnapshot.status == SnapshotStatus.READY,
+            )
+            .order_by(RepositorySnapshot.completed_at.desc(), RepositorySnapshot.created_at.desc())
+            .limit(1)
+        )
+
+    def _copy_source_file(
+        self, snapshot: RepositorySnapshot, candidate: CandidateFile, previous: SourceFile
+    ) -> tuple[SourceFile, int, int, bool]:
+        source_file = SourceFile(
+            snapshot=snapshot,
+            path=candidate.path,
+            module_name=previous.module_name,
+            sha256=candidate.sha256,
+            size_bytes=candidate.size_bytes,
+            line_count=candidate.line_count,
+            parse_status=previous.parse_status,
+            parse_error=previous.parse_error,
+            content=candidate.content,
+        )
+        symbols_by_id: dict[object, CodeSymbol] = {}
+        for previous_symbol in previous.symbols:
+            symbol = CodeSymbol(
+                source_file=source_file,
+                kind=previous_symbol.kind,
+                name=previous_symbol.name,
+                qualified_name=previous_symbol.qualified_name,
+                start_line=previous_symbol.start_line,
+                end_line=previous_symbol.end_line,
+                is_async=previous_symbol.is_async,
+            )
+            symbols_by_id[previous_symbol.id] = symbol
+        for previous_symbol in previous.symbols:
+            if previous_symbol.parent_id is not None:
+                symbols_by_id[previous_symbol.id].parent = symbols_by_id[
+                    previous_symbol.parent_id
+                ]
+        for previous_import in previous.imports:
+            source_file.imports.append(
+                SourceImport(
+                    module=previous_import.module,
+                    imported_name=previous_import.imported_name,
+                    alias=previous_import.alias,
+                    level=previous_import.level,
+                    start_line=previous_import.start_line,
+                    end_line=previous_import.end_line,
+                )
+            )
+        return (
+            source_file,
+            len(previous.symbols),
+            len(previous.imports),
+            previous.parse_status == FileParseStatus.MALFORMED,
+        )
+
+    @staticmethod
+    def _parse_source_file(
+        snapshot: RepositorySnapshot, candidate: CandidateFile
+    ) -> tuple[SourceFile, int, int, bool]:
+        analysis = analyze_python(candidate.content, candidate.path)
+        source_file = SourceFile(
+            snapshot=snapshot,
+            path=candidate.path,
+            module_name=module_name_from_path(candidate.path),
+            sha256=candidate.sha256,
+            size_bytes=candidate.size_bytes,
+            line_count=candidate.line_count,
+            parse_status=(
+                FileParseStatus.MALFORMED if analysis.error else FileParseStatus.PARSED
+            ),
+            parse_error=analysis.error,
+            content=candidate.content,
+        )
+        symbols_by_name: dict[str, CodeSymbol] = {}
+        for parsed_symbol in analysis.symbols:
+            symbol = CodeSymbol(
+                source_file=source_file,
+                parent=symbols_by_name.get(parsed_symbol.parent_qualified_name or ""),
+                kind=parsed_symbol.kind,
+                name=parsed_symbol.name,
+                qualified_name=parsed_symbol.qualified_name,
+                start_line=parsed_symbol.start_line,
+                end_line=parsed_symbol.end_line,
+                is_async=parsed_symbol.is_async,
+            )
+            symbols_by_name[parsed_symbol.qualified_name] = symbol
+        for parsed_import in analysis.imports:
+            source_file.imports.append(
+                SourceImport(
+                    module=parsed_import.module,
+                    imported_name=parsed_import.imported_name,
+                    alias=parsed_import.alias,
+                    level=parsed_import.level,
+                    start_line=parsed_import.start_line,
+                    end_line=parsed_import.end_line,
+                )
+            )
+        return source_file, len(analysis.symbols), len(analysis.imports), analysis.error is not None
+
+    def _persist_scan(
+        self,
+        snapshot: RepositorySnapshot,
+        result: ScanResult,
+        previous_snapshot: RepositorySnapshot | None,
+    ) -> None:
         symbol_count = 0
         import_count = 0
         malformed_count = 0
+        reused_count = 0
+        processed_count = 0
+        previous_files = (
+            {source_file.path: source_file for source_file in previous_snapshot.files}
+            if previous_snapshot is not None
+            else {}
+        )
         for candidate in result.files:
-            if candidate.analysis.error:
-                malformed_count += 1
-            source_file = SourceFile(
-                snapshot=snapshot,
-                path=candidate.path,
-                module_name=module_name_from_path(candidate.path),
-                sha256=candidate.sha256,
-                size_bytes=candidate.size_bytes,
-                line_count=candidate.line_count,
-                parse_status=(
-                    FileParseStatus.MALFORMED
-                    if candidate.analysis.error
-                    else FileParseStatus.PARSED
-                ),
-                parse_error=candidate.analysis.error,
-                content=candidate.content,
-            )
-            symbols_by_name: dict[str, CodeSymbol] = {}
-            for parsed_symbol in candidate.analysis.symbols:
-                symbol = CodeSymbol(
-                    source_file=source_file,
-                    parent=symbols_by_name.get(parsed_symbol.parent_qualified_name or ""),
-                    kind=parsed_symbol.kind,
-                    name=parsed_symbol.name,
-                    qualified_name=parsed_symbol.qualified_name,
-                    start_line=parsed_symbol.start_line,
-                    end_line=parsed_symbol.end_line,
-                    is_async=parsed_symbol.is_async,
+            previous = previous_files.get(candidate.path)
+            if previous is not None and previous.sha256 == candidate.sha256:
+                source_file, symbols, imports, malformed = self._copy_source_file(
+                    snapshot, candidate, previous
                 )
-                symbols_by_name[parsed_symbol.qualified_name] = symbol
-                symbol_count += 1
-            for parsed_import in candidate.analysis.imports:
-                source_file.imports.append(
-                    SourceImport(
-                        module=parsed_import.module,
-                        imported_name=parsed_import.imported_name,
-                        alias=parsed_import.alias,
-                        level=parsed_import.level,
-                        start_line=parsed_import.start_line,
-                        end_line=parsed_import.end_line,
-                    )
+                reused_count += 1
+            else:
+                source_file, symbols, imports, malformed = self._parse_source_file(
+                    snapshot, candidate
                 )
-                import_count += 1
+                processed_count += 1
+            symbol_count += symbols
+            import_count += imports
+            malformed_count += int(malformed)
             self.session.add(source_file)
 
         for item in result.dependencies:
@@ -268,6 +356,11 @@ class RepositoryIngestionService:
         snapshot.parsed_file_count = len(result.files) - malformed_count
         snapshot.malformed_file_count = malformed_count
         snapshot.skipped_file_count = result.skipped_file_count
+        snapshot.reused_file_count = reused_count
+        snapshot.processed_file_count = processed_count
+        snapshot.removed_file_count = len(
+            set(previous_files) - {candidate.path for candidate in result.files}
+        )
         snapshot.symbol_count = symbol_count
         snapshot.import_count = import_count
         snapshot.total_bytes = result.total_bytes
@@ -283,12 +376,13 @@ class RepositoryIngestionService:
         self.session.commit()
         try:
             with self.acquirer.acquire(repository.github_url) as acquired:
+                previous_snapshot = self._previous_snapshot(repository, acquired.commit_sha)
                 snapshot, complete = self._get_or_create_snapshot(repository, acquired)
                 if complete:
                     return snapshot
                 try:
                     result = self._scan(acquired.path)
-                    self._persist_scan(snapshot, result)
+                    self._persist_scan(snapshot, result, previous_snapshot)
                 except Exception as exc:
                     self.session.rollback()
                     snapshot = self.session.get(RepositorySnapshot, snapshot.id)

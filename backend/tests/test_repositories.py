@@ -23,7 +23,9 @@ def test_duplicate_repository_is_rejected(client: TestClient) -> None:
     response = client.post("/api/v1/repositories", json=payload)
 
     assert response.status_code == 409
-    assert response.json() == {"detail": "Repository has already been submitted"}
+    assert response.json()["error"]["message"] == "Repository has already been submitted"
+    assert response.json()["error"]["code"] == "http_409"
+    assert response.headers["X-Request-ID"]
 
 
 def test_non_github_or_non_repository_urls_are_rejected(client: TestClient) -> None:

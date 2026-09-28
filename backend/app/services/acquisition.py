@@ -47,7 +47,18 @@ class GitRepositoryAcquirer:
     def _run(self, arguments: list[str], cwd: Path | None = None) -> str:
         try:
             result = subprocess.run(
-                ["git", "-c", f"core.hooksPath={os.devnull}", *arguments],
+                [
+                    "git",
+                    "-c",
+                    f"core.hooksPath={os.devnull}",
+                    "-c",
+                    "protocol.file.allow=never",
+                    "-c",
+                    "protocol.ext.allow=never",
+                    "-c",
+                    "submodule.recurse=false",
+                    *arguments,
+                ],
                 cwd=cwd,
                 env=self._environment(),
                 capture_output=True,
@@ -95,6 +106,7 @@ class GitRepositoryAcquirer:
                     "clone",
                     "--depth",
                     "1",
+                    "--single-branch",
                     "--filter=blob:none",
                     "--no-tags",
                     "--no-recurse-submodules",
