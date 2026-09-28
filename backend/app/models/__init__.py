@@ -1,5 +1,6 @@
 from app.models.code_symbol import CodeSymbol, SymbolKind
 from app.models.dependency import DependencySourceType, DependencyVulnerability, SnapshotDependency
+from app.models.ingestion_job import IngestionJob, IngestionJobStatus
 from app.models.repository import Repository, RepositoryStatus
 from app.models.retrieval import RetrievalIndexStatus, RetrievalUnit, SnapshotRetrievalIndex
 from app.models.snapshot import RepositorySnapshot, SnapshotStatus
@@ -13,6 +14,8 @@ __all__ = [
     "DependencyVulnerability",
     "FileParseStatus",
     "ImportResolutionStatus",
+    "IngestionJob",
+    "IngestionJobStatus",
     "ModuleImportResolution",
     "Repository",
     "RepositorySnapshot",

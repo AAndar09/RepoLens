@@ -88,26 +88,34 @@ class FallbackLLMProvider:
             )
         )
         logger.warning(
-            "llm_call provider=%s model=%s operation=%s success=false fallback=%s error=%s",
-            provider.provider_name,
-            provider.model,
-            operation,
-            fallback,
-            exc.__class__.__name__,
+            "llm_call",
+            extra={
+                "event": "llm_call",
+                "provider": provider.provider_name,
+                "model": provider.model,
+                "operation": operation,
+                "success": False,
+                "fallback": fallback,
+                "duration_ms": duration_ms,
+                "error_type": exc.__class__.__name__,
+            },
         )
 
     def _success(self, result: LLMResult, operation: str) -> LLMResult:
         self.runs.append(result_run(result, operation))
         logger.info(
-            "llm_call provider=%s model=%s operation=%s duration_ms=%s success=true "
-            "fallback=%s input_tokens=%s output_tokens=%s",
-            result.provider,
-            result.model,
-            operation,
-            result.duration_ms,
-            result.fallback_used,
-            result.usage.input_tokens,
-            result.usage.output_tokens,
+            "llm_call",
+            extra={
+                "event": "llm_call",
+                "provider": result.provider,
+                "model": result.model,
+                "operation": operation,
+                "duration_ms": result.duration_ms,
+                "success": True,
+                "fallback": result.fallback_used,
+                "input_tokens": result.usage.input_tokens,
+                "output_tokens": result.usage.output_tokens,
+            },
         )
         return result
 

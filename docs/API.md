@@ -1,13 +1,24 @@
-# Phase 8 API
+# RepoLens v1.0 API
 
-The API is rooted at `/api/v1`. Generated OpenAPI is available at `/openapi.json` and interactive documentation at `/docs`.
+The API is rooted at `/api/v1`. OpenAPI and interactive docs are enabled in development and
+disabled by the production Compose configuration. Every response includes `X-Request-ID`.
+
+Errors use one envelope:
+
+```json
+{"error":{"code":"http_404","message":"Repository not found","request_id":"..."}}
+```
+
+Validation errors add a structured `details` list. `429` includes `Retry-After` and `413` indicates
+a configured request/repository resource bound.
 
 ## Health
 
-`GET /api/v1/health` checks the API and relational database. A healthy response is:
+`GET /api/v1/health/live` checks only that the process can serve requests.
+`GET /api/v1/health/ready` (also aliased by `/health`) checks PostgreSQL and Qdrant. A ready response is:
 
 ```json
-{"status":"ok","database":"ok"}
+{"status":"ok","database":"ok","vector_database":"ok"}
 ```
 
 ## Repository submission and status
@@ -24,11 +35,19 @@ URLs must use HTTPS, use the exact `github.com` host, identify one owner/reposit
 
 ## Ingestion
 
-`POST /api/v1/repositories/{repository_id}/ingestions` synchronously acquires and indexes the repository's default branch. The response contains:
+`POST /api/v1/repositories/{repository_id}/ingestion-jobs` returns `202` with a durable job. Poll
+`GET /api/v1/repositories/{repository_id}/ingestion-jobs/{job_id}` until `succeeded` or `failed`.
+The successful job includes `snapshot_id`; the failure includes a bounded diagnostic. Posting while
+the repository already has a queued/running job returns that active job. A full configured global
+queue returns `503` with `Retry-After`.
+
+`POST /api/v1/repositories/{repository_id}/ingestions` remains as a deprecated synchronous
+compatibility endpoint. Snapshot responses contain:
 
 - branch and full commit SHA;
 - ingestion status and error;
 - parsed, malformed, and skipped file counts;
+- reused, newly processed, and removed file counts;
 - symbol/import counts and total accepted bytes.
 
 The same completed commit is returned idempotently. Acquisition failures return `422`; configured resource-limit failures return `413`. Unexpected failures return `500` after repository/snapshot failure status is persisted.
@@ -122,3 +141,11 @@ The response includes `routing` (`category`, `strategy`, `confidence`, `fallback
 - `GET /api/v1/repositories/{repository_id}/snapshots/{snapshot_id}/vulnerabilities` returns persisted OSV findings with package version, OSV ID, aliases, severity, affected data, references, source URL, and query time.
 
 OSV failures are recorded per dependency and do not erase older findings. A returned vulnerability is a public-source package/version match, not a claim that the application is reachable or exploitable.
+
+## Evaluation reports
+
+`GET /api/v1/evaluations/results` returns bounded, read-only summaries of valid JSON reports in the
+configured evaluation results directory. Summaries contain dataset identity/hash, embedding and
+retrieval configurations, Recall@K, citation metadata correctness, routing/symbol/tool accuracy,
+latency, comparisons, unsupported experiments, and the explicitly separate model-assisted section.
+Malformed or oversized report files are skipped and logged.

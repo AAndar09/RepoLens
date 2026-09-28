@@ -20,6 +20,13 @@ jobs:
       - run: python -m pip install -e "./backend[dev]"
       - run: ruff check backend
       - run: pytest backend --cov=app --cov-report=term-missing
+      - name: Verify migrations from an empty database
+        working-directory: backend
+        env:
+          REPOLENS_DATABASE_URL: sqlite:///./migration-test.db
+        run: |
+          alembic upgrade head
+          rm migration-test.db
 
   frontend:
     runs-on: ubuntu-latest
@@ -37,4 +44,22 @@ jobs:
       - run: npm run lint
       - run: npm test
       - run: npm run build
+
+  containers:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t repolens-backend-ci backend
+      - run: docker build --target production -t repolens-frontend-ci frontend
+      - name: Validate production Compose configuration
+        env:
+          POSTGRES_DB: repolens
+          POSTGRES_USER: repolens
+          POSTGRES_PASSWORD: ci-only-password
+          REPOLENS_DATABASE_URL: postgresql+psycopg://repolens:ci-only-password@postgres:5432/repolens
+          REPOLENS_CORS_ORIGINS: https://repolens.example.test
+          REPOLENS_ALLOWED_HOSTS: repolens.example.test
+          REPOLENS_LLM_PROVIDER: gemini
+          REPOLENS_LLM_MODEL: gemini-3.5-flash-lite
+        run: docker compose -f compose.production.yaml config --quiet
 

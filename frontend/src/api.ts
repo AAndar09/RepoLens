@@ -4,7 +4,7 @@ export type RepositoryStatus = 'submitted' | 'ingesting' | 'ready' | 'failed'
 export type SnapshotStatus = 'ingesting' | 'ready' | 'failed'
 export type SymbolKind = 'module' | 'class' | 'function' | 'method'
 
-export interface HealthResponse { status: 'ok'; database: 'ok' }
+export interface HealthResponse { status: 'ok'; database: 'ok'; vector_database: 'ok' }
 export interface Repository {
   id: string; github_url: string; owner: string; name: string; status: RepositoryStatus
   ingestion_error: string | null; created_at: string; updated_at: string
@@ -13,7 +13,14 @@ export interface RepositorySnapshot {
   id: string; repository_id: string; branch: string; commit_sha: string; status: SnapshotStatus
   error_message: string | null; file_count: number; parsed_file_count: number
   malformed_file_count: number; skipped_file_count: number; symbol_count: number
+  reused_file_count: number; processed_file_count: number; removed_file_count: number
   import_count: number; total_bytes: number; created_at: string; completed_at: string | null
+}
+export interface IngestionJob {
+  id: string; repository_id: string; snapshot_id: string | null
+  status: 'queued' | 'running' | 'succeeded' | 'failed'; attempt_count: number
+  error_message: string | null; created_at: string; started_at: string | null
+  completed_at: string | null
 }
 export interface SourceFile {
   id: string; snapshot_id: string; path: string; module_name: string; sha256: string
@@ -87,10 +94,43 @@ export interface RoutedQueryResponse {
   tool_trace: ToolTrace[]; model_runs: ModelRun[]; investigation: unknown | null
 }
 
-interface ApiErrorBody { detail?: string | Array<{ msg: string }> }
+export interface EvaluationLatency {
+  sample_count: number; mean_ms: number | null; median_ms: number | null; p95_ms: number | null
+}
+export interface EvaluationRetrievalSummary {
+  configuration: string; case_count: number
+  mean_recall_at_k: Record<string, number | null>
+  mean_citation_correctness_at_k: Record<string, number | null>
+  latency: EvaluationLatency
+}
+export interface EvaluationComparison {
+  baseline: string; contender: string
+  recall_delta_at_k: Record<string, number | null>
+  citation_correctness_delta_at_k: Record<string, number | null>
+}
+export interface EvaluationMetric {
+  measured_cases: number; accuracy: number | null; latency: EvaluationLatency | null
+}
+export interface EvaluationResult {
+  generated_at: string; dataset_id: string; dataset_sha256: string
+  embedding_provider: string; embedding_dimensions: number
+  configurations: string[]; k_values: number[]
+  retrieval_summaries: EvaluationRetrievalSummary[]
+  retrieval_comparisons: EvaluationComparison[]
+  routing_category: EvaluationMetric; routing_strategy: EvaluationMetric
+  symbol_lookup: EvaluationMetric; tool_selection: EvaluationMetric
+  unsupported_configurations: Record<string, string>
+  model_assisted_metrics: { enabled: boolean; metrics: Record<string, number>; note: string }
+}
+
+interface ApiErrorBody {
+  detail?: string | Array<{ msg: string }>
+  error?: { message?: string }
+}
 
 async function parseError(response: Response): Promise<Error> {
   const body = (await response.json().catch(() => ({}))) as ApiErrorBody
+  if (body.error?.message) return new Error(body.error.message)
   if (typeof body.detail === 'string') return new Error(body.detail)
   if (Array.isArray(body.detail)) return new Error(body.detail[0]?.msg ?? 'Request failed')
   return new Error(`Request failed (${response.status})`)
@@ -110,13 +150,15 @@ const jsonPost = (body?: unknown): RequestInit => ({
 const snapshotPath = (repositoryId: string, snapshotId: string) =>
   `/repositories/${repositoryId}/snapshots/${snapshotId}`
 
-export const fetchHealth = () => request<HealthResponse>('/health')
+export const fetchHealth = () => request<HealthResponse>('/health/ready')
 export const fetchRepository = (id: string) => request<Repository>(`/repositories/${id}`)
 export const fetchSnapshots = (id: string) => request<RepositorySnapshot[]>(`/repositories/${id}/snapshots`)
 export const submitRepository = (githubUrl: string) =>
   request<Repository>('/repositories', jsonPost({ github_url: githubUrl }))
-export const ingestRepository = (id: string) =>
-  request<RepositorySnapshot>(`/repositories/${id}/ingestions`, jsonPost())
+export const startIngestion = (id: string) =>
+  request<IngestionJob>(`/repositories/${id}/ingestion-jobs`, jsonPost())
+export const fetchIngestionJob = (repositoryId: string, jobId: string) =>
+  request<IngestionJob>(`/repositories/${repositoryId}/ingestion-jobs/${jobId}`)
 export const buildRetrievalIndex = (repositoryId: string, snapshotId: string) =>
   request<RetrievalIndex>(`${snapshotPath(repositoryId, snapshotId)}/retrieval-index`, jsonPost())
 export const fetchFiles = (repositoryId: string, snapshotId: string) =>
@@ -139,6 +181,7 @@ export const scanVulnerabilities = (repositoryId: string, snapshotId: string, re
   request<VulnerabilityScan>(`${snapshotPath(repositoryId, snapshotId)}/vulnerability-scan?refresh=${refresh}&finding_limit=500`, jsonPost())
 export const askRepository = (repositoryId: string, snapshotId: string, question: string) =>
   request<RoutedQueryResponse>(`${snapshotPath(repositoryId, snapshotId)}/queries`, jsonPost({ question }))
+export const fetchEvaluationResults = () => request<EvaluationResult[]>('/evaluations/results')
 
 export function githubSourceUrl(
   repository: Repository, snapshot: RepositorySnapshot, path: string,

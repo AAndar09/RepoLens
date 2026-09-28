@@ -29,8 +29,10 @@ To use Ollama locally instead, set `REPOLENS_LLM_PROVIDER=ollama`, set
 `REPOLENS_LLM_MODEL=qwen2.5-coder:7b`, and pull that model on the host. Embeddings remain local and
 independent of the generative provider in every configuration.
 The workspace exposes source/symbol exploration, structural imports, dependency inventory, OSV
-findings, deterministically routed repository questions, commit-pinned evidence, and optional tool
-traces. Ambiguous questions use the bounded cloud investigation workflow.
+findings, deterministically routed repository questions, commit-pinned evidence, optional tool
+traces, and generated evaluation results. Repository analysis runs as a pollable background job;
+unchanged files are reused by hash when a later commit is indexed. Ambiguous questions use the
+bounded cloud investigation workflow.
 
 Stop with `docker compose down`. Use `--volumes` only to intentionally erase local PostgreSQL and
 Qdrant data.
@@ -85,6 +87,22 @@ docker compose exec backend python -m app.evaluation.cli \
 
 Reports include raw ranked evidence, Recall@K, citation metadata correctness, symbol/routing/direct
 tool-selection accuracy, latency, and configuration deltas. See [evaluation documentation](docs/evaluation.md)
-for metric definitions and reproducibility constraints.
+for metric definitions and reproducibility constraints. Generated reports also appear in the
+frontend's **Evaluations** view.
+
+## Production deployment
+
+Copy `.env.production.example` to `.env.production`, replace every placeholder and required provider
+credential, then start the hardened single-host deployment:
+
+```bash
+docker compose --env-file .env.production -f compose.production.yaml up -d --build
+```
+
+Place a TLS reverse proxy/load balancer in front of port 8080. The production configuration uses
+PostgreSQL, internal Qdrant, non-root/read-only application containers, same-origin API proxying,
+readiness checks, request/rate limits, and development-default validation. The v1 background job
+dispatcher is process-local, so run one backend process. See [deployment](docs/deployment.md),
+[operations](docs/operations.md), and [security review](docs/security.md).
 
 See [architecture](docs/architecture.md), [API](docs/API.md), and [ADRs](docs/adr).

@@ -46,7 +46,11 @@ def test_ingestion_and_intelligence_query_endpoints(client: TestClient, tmp_path
     snapshots = client.get(f"/api/v1/repositories/{repository_id}/snapshots").json()
     assert [item["id"] for item in snapshots] == [snapshot_id]
 
-    files = client.get(f"/api/v1/repositories/{repository_id}/snapshots/{snapshot_id}/files").json()
+    files_response = client.get(
+        f"/api/v1/repositories/{repository_id}/snapshots/{snapshot_id}/files"
+    )
+    assert files_response.headers["Cache-Control"].startswith("public, max-age=")
+    files = files_response.json()
     assert files[0]["path"] == "example.py"
     file_detail = client.get(
         f"/api/v1/repositories/{repository_id}/snapshots/{snapshot_id}/files/{files[0]['id']}"

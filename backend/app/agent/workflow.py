@@ -171,11 +171,14 @@ class InvestigationAgent:
                 )
             traces.append(trace)
             logger.info(
-                "investigation_tool_call tool=%s status=%s step=%s evidence=%s",
-                trace.tool,
-                trace.status,
-                step,
-                len(trace.evidence_ids),
+                "investigation_tool_call",
+                extra={
+                    "event": "investigation_tool_call",
+                    "tool": trace.tool,
+                    "tool_status": trace.status,
+                    "agent_step": step,
+                    "evidence_count": len(trace.evidence_ids),
+                },
             )
         return {
             "evidence": evidence,

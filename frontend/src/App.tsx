@@ -5,11 +5,14 @@ import {
   buildRetrievalIndex,
   CodeSymbol,
   Dependency,
+  EvaluationResult,
   fetchDependencies,
+  fetchEvaluationResults,
   fetchFile,
   fetchFiles,
   fetchGraph,
   fetchHealth,
+  fetchIngestionJob,
   fetchImports,
   fetchModuleImports,
   fetchRepository,
@@ -19,7 +22,6 @@ import {
   githubSourceUrl,
   GraphSummary,
   ImportRelationship,
-  ingestRepository,
   Repository,
   RepositorySnapshot,
   RoutedQueryResponse,
@@ -27,14 +29,15 @@ import {
   SourceFile,
   SourceFileDetail,
   SourceImport,
+  startIngestion,
   submitRepository,
   Vulnerability,
 } from './api'
 import './styles.css'
 
 type ConnectionState = 'checking' | 'online' | 'offline'
-type View = 'overview' | 'ask' | 'explorer' | 'structure' | 'dependencies' | 'security'
-type ProcessingStage = 'idle' | 'submitting' | 'ingesting' | 'indexing' | 'loading'
+type View = 'overview' | 'ask' | 'explorer' | 'structure' | 'dependencies' | 'security' | 'evaluations'
+type ProcessingStage = 'idle' | 'submitting' | 'queued' | 'ingesting' | 'indexing' | 'loading'
 
 const STORAGE_KEY = 'repolens.workspace'
 const navItems: Array<{ id: View; label: string; code: string }> = [
@@ -44,11 +47,13 @@ const navItems: Array<{ id: View; label: string; code: string }> = [
   { id: 'structure', label: 'Structure', code: 'GR' },
   { id: 'dependencies', label: 'Dependencies', code: 'DP' },
   { id: 'security', label: 'Security', code: 'OS' },
+  { id: 'evaluations', label: 'Evaluations', code: 'EV' },
 ]
 
 const errorMessage = (error: unknown) => error instanceof Error ? error.message : 'Request failed'
 const formatBytes = (bytes: number) =>
   new Intl.NumberFormat('en', { notation: 'compact', maximumFractionDigits: 1 }).format(bytes) + 'B'
+const pause = (milliseconds: number) => new Promise((resolve) => window.setTimeout(resolve, milliseconds))
 
 function App() {
   const [connection, setConnection] = useState<ConnectionState>('checking')
@@ -65,6 +70,8 @@ function App() {
   const [graph, setGraph] = useState<GraphSummary | null>(null)
   const [dependencies, setDependencies] = useState<Dependency[]>([])
   const [vulnerabilities, setVulnerabilities] = useState<Vulnerability[]>([])
+  const [evaluations, setEvaluations] = useState<EvaluationResult[]>([])
+  const [evaluationError, setEvaluationError] = useState('')
 
   useEffect(() => {
     let active = true
@@ -77,21 +84,35 @@ function App() {
       }
       if (!active) return
       setConnection('online')
+      void fetchEvaluationResults().then((items) => {
+        if (active) setEvaluations(items)
+      }).catch((evaluationLoadError) => {
+        if (active) setEvaluationError(errorMessage(evaluationLoadError))
+      })
       const saved = localStorage.getItem(STORAGE_KEY)
       if (!saved) return
       try {
-        const { repositoryId, snapshotId } = JSON.parse(saved) as {
-          repositoryId: string; snapshotId: string
+        const { repositoryId, snapshotId, jobId } = JSON.parse(saved) as {
+          repositoryId: string; snapshotId?: string; jobId?: string
         }
         setStage('loading')
-        const [restoredRepository, snapshots] = await Promise.all([
-          fetchRepository(repositoryId), fetchSnapshots(repositoryId),
-        ])
-        const restoredSnapshot = snapshots.find((item) => item.id === snapshotId) ?? snapshots[0]
-        if (!restoredSnapshot) throw new Error('The saved repository has no indexed snapshot')
+        const restoredRepository = await fetchRepository(repositoryId)
         if (!active) return
         setRepository(restoredRepository)
+        let restoredSnapshot: RepositorySnapshot
+        if (snapshotId) {
+          const snapshots = await fetchSnapshots(repositoryId)
+          const selected = snapshots.find((item) => item.id === snapshotId) ?? snapshots[0]
+          if (!selected) throw new Error('The saved repository has no indexed snapshot')
+          restoredSnapshot = selected
+        } else {
+          restoredSnapshot = await waitForIngestion(repositoryId, jobId)
+        }
+        if (!active) return
         setSnapshot(restoredSnapshot)
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({
+          repositoryId, snapshotId: restoredSnapshot.id,
+        }))
         await hydrate(restoredRepository, restoredSnapshot, active)
       } catch (restoreError) {
         if (active) {
@@ -136,8 +157,8 @@ function App() {
       setStage('submitting')
       const submitted = await submitRepository(githubUrl)
       setRepository(submitted)
-      setStage('ingesting')
-      const ingested = await ingestRepository(submitted.id)
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ repositoryId: submitted.id }))
+      const ingested = await waitForIngestion(submitted.id)
       setSnapshot(ingested)
       setGithubUrl('')
       localStorage.setItem(STORAGE_KEY, JSON.stringify({
@@ -157,8 +178,7 @@ function App() {
     if (!repository) return
     setError('')
     try {
-      setStage('ingesting')
-      const ingested = await ingestRepository(repository.id)
+      const ingested = await waitForIngestion(repository.id)
       setSnapshot(ingested)
       localStorage.setItem(STORAGE_KEY, JSON.stringify({
         repositoryId: repository.id, snapshotId: ingested.id,
@@ -170,6 +190,29 @@ function App() {
     } finally {
       setStage('idle')
     }
+  }
+
+  async function waitForIngestion(
+    repositoryId: string, existingJobId?: string,
+  ): Promise<RepositorySnapshot> {
+    setStage('queued')
+    let job = existingJobId
+      ? await fetchIngestionJob(repositoryId, existingJobId)
+      : await startIngestion(repositoryId)
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ repositoryId, jobId: job.id }))
+    for (let attempt = 0; attempt < 600; attempt += 1) {
+      if (job.status === 'failed') throw new Error(job.error_message ?? 'Repository ingestion failed')
+      if (job.status === 'succeeded' && job.snapshot_id) {
+        const snapshots = await fetchSnapshots(repositoryId)
+        const completed = snapshots.find((item) => item.id === job.snapshot_id)
+        if (!completed) throw new Error('Completed ingestion snapshot could not be loaded')
+        return completed
+      }
+      setStage(job.status === 'queued' ? 'queued' : 'ingesting')
+      await pause(1_000)
+      job = await fetchIngestionJob(repositoryId, job.id)
+    }
+    throw new Error('Repository ingestion did not complete within 10 minutes')
   }
 
   function resetWorkspace() {
@@ -247,6 +290,7 @@ function App() {
           {view === 'structure' && <StructureView repository={repository} snapshot={snapshot} files={files} imports={imports} graph={graph} />}
           {view === 'dependencies' && <DependenciesView repository={repository} snapshot={snapshot} dependencies={dependencies} />}
           {view === 'security' && <SecurityView repository={repository} snapshot={snapshot} dependencies={dependencies} vulnerabilities={vulnerabilities} setVulnerabilities={setVulnerabilities} />}
+          {view === 'evaluations' && <EvaluationsView evaluations={evaluations} error={evaluationError} />}
         </div>
       </main>
     </div>
@@ -267,7 +311,7 @@ function Landing({ connection, githubUrl, setGithubUrl, stage, error, repository
   onSubmit: (event: FormEvent<HTMLFormElement>) => void; onRetry: () => void
 }) {
   const processing = stage !== 'idle'
-  const stageLabel = stage === 'submitting' ? 'Validating repository' : stage === 'ingesting' ? 'Cloning and analysing Python' : stage === 'indexing' ? 'Building retrieval index' : stage === 'loading' ? 'Restoring workspace' : ''
+  const stageLabel = stage === 'submitting' ? 'Validating repository' : stage === 'queued' ? 'Queued for analysis' : stage === 'ingesting' ? 'Cloning and analysing Python' : stage === 'indexing' ? 'Loading indexed intelligence' : stage === 'loading' ? 'Restoring workspace' : ''
   return <main className="landing">
     <header className="landing-header"><Brand /><Connection state={connection} /></header>
     <section className="hero">
@@ -319,7 +363,7 @@ function Overview({ repository, snapshot, graph, dependencies, vulnerabilities }
   </>
 }
 
-function Metric({ value, label, note }: { value: number; label: string; note: string }) {
+function Metric({ value, label, note }: { value: number | string; label: string; note: string }) {
   return <article className="metric"><strong>{value.toLocaleString()}</strong><span>{label}</span><small>{note}</small></article>
 }
 function PanelTitle({ index, title }: { index: string; title: string }) { return <h3 className="panel-title"><span>{index}</span>{title}</h3> }
@@ -416,6 +460,44 @@ function SecurityView({ repository, snapshot, dependencies, vulnerabilities, set
     <div className="security-callout"><strong>Finding ≠ exploitability</strong><p>RepoLens does not currently perform reachability analysis. Verify whether the vulnerable functionality is used and whether environmental mitigations apply.</p></div>
     {scanNote && <div className="alert success" role="status">{scanNote}</div>}{error && <div className="alert error" role="alert">{error}</div>}
     <section className="finding-list">{vulnerabilities.map((finding) => <article className="finding" key={finding.id}><div className="finding-id"><span>{finding.source}</span><a href={finding.source_url} target="_blank" rel="noreferrer">{finding.osv_id} ↗</a></div><div className="finding-body"><h3>{finding.summary ?? finding.osv_id}</h3><p>{finding.details ?? 'No additional details supplied by the vulnerability source.'}</p><div className="finding-tags"><code>{finding.package_name}=={finding.package_version}</code>{finding.aliases.map((alias) => <span key={alias}>{alias}</span>)}</div></div><div className="finding-time"><span>Source checked</span><time>{new Date(finding.queried_at).toLocaleDateString()}</time></div></article>)}{vulnerabilities.length === 0 && <EmptyState code="OS" title="No cached findings" text={dependencies.some((item) => item.version_resolved) ? 'Run an OSV scan to check exact dependency versions.' : 'No exact dependency versions are available to query.'} />}</section>
+  </>
+}
+
+function EvaluationsView({ evaluations, error }: { evaluations: EvaluationResult[]; error: string }) {
+  const [selectedIndex, setSelectedIndex] = useState(0)
+  const result = evaluations[selectedIndex]
+  const percent = (value: number | null) => value === null ? 'not measured' : `${(value * 100).toFixed(1)}%`
+  return <>
+    <ViewHeading eyebrow="Reproducible benchmarks" title="Model evaluations" description="Versioned, commit-pinned retrieval and routing measurements. All displayed scores are generated by the evaluation runner—no benchmark values are invented." />
+    {error && <div className="alert error" role="alert">Evaluation reports could not be loaded: {error}</div>}
+    {!result && <section className="evaluation-empty"><EmptyState code="EV" title="No evaluation reports yet" text="Run the versioned evaluation dataset from the backend CLI, then refresh this page." /></section>}
+    {result && <>
+      <section className="evaluation-meta">
+        <div><span>Dataset</span><strong>{result.dataset_id}</strong></div>
+        <div><span>Generated</span><strong>{new Date(result.generated_at).toLocaleString()}</strong></div>
+        <div><span>Embedding</span><strong>{result.embedding_provider} · {result.embedding_dimensions}d</strong></div>
+        <label>Report<select value={selectedIndex} onChange={(event) => setSelectedIndex(Number(event.target.value))}>{evaluations.map((item, index) => <option value={index} key={`${item.dataset_id}-${item.generated_at}`}>{item.dataset_id} · {new Date(item.generated_at).toLocaleDateString()}</option>)}</select></label>
+      </section>
+      <section className="metric-grid evaluation-metrics">
+        <Metric value={percent(result.routing_category.accuracy)} label="Routing category" note={`${result.routing_category.measured_cases} measured cases`} />
+        <Metric value={percent(result.routing_strategy.accuracy)} label="Routing strategy" note={`${result.routing_strategy.measured_cases} measured cases`} />
+        <Metric value={percent(result.symbol_lookup.accuracy)} label="Symbol lookup" note={`${result.symbol_lookup.measured_cases} measured cases`} />
+        <Metric value={percent(result.tool_selection.accuracy)} label="Tool selection" note={`${result.tool_selection.measured_cases} measured cases`} />
+      </section>
+      <section className="evaluation-grid">
+        {result.retrieval_summaries.map((summary) => <article className="evaluation-card" key={summary.configuration}>
+          <div className="evaluation-card-head"><h3>{summary.configuration}</h3><span>{summary.case_count} cases</span></div>
+          <dl className="evaluation-values">
+            {result.k_values.map((k) => <div key={k}><dt>Recall@{k}</dt><dd>{percent(summary.mean_recall_at_k[String(k)] ?? null)}</dd><dt>Citation@{k}</dt><dd>{percent(summary.mean_citation_correctness_at_k[String(k)] ?? null)}</dd></div>)}
+            <div><dt>Mean latency</dt><dd>{summary.latency.mean_ms === null ? 'not measured' : `${summary.latency.mean_ms.toFixed(1)} ms`}</dd><dt>P95 latency</dt><dd>{summary.latency.p95_ms === null ? 'not measured' : `${summary.latency.p95_ms.toFixed(1)} ms`}</dd></div>
+          </dl>
+        </article>)}
+      </section>
+      <section className="evaluation-notes">
+        <div><PanelTitle index="Δ" title="Configuration comparisons" />{result.retrieval_comparisons.length ? result.retrieval_comparisons.map((comparison) => <p key={`${comparison.baseline}-${comparison.contender}`}><code>{comparison.contender}</code> versus <code>{comparison.baseline}</code>{result.k_values.map((k) => <span key={k}>Recall@{k}: {percent(comparison.recall_delta_at_k[String(k)] ?? null)}</span>)}</p>) : <p className="muted">No comparable retrieval configurations were measured.</p>}</div>
+        <div><PanelTitle index="AI" title="Model-assisted grading" /><p className="muted">{result.model_assisted_metrics.note}</p><span className={`tag ${result.model_assisted_metrics.enabled ? 'good' : 'neutral'}`}>{result.model_assisted_metrics.enabled ? 'enabled' : 'disabled'}</span></div>
+      </section>
+    </>}
   </>
 }
 

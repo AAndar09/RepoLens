@@ -73,3 +73,11 @@ in the report separately from deterministic metrics. Future model judges must re
 provider/model/prompt version and must never be blended into deterministic scores.
 
 No benchmark numbers are checked into documentation unless they come from an exported run.
+
+## Frontend reporting
+
+The backend reads valid bounded reports from `REPOLENS_EVALUATION_RESULTS_DIR` and exposes summary
+metrics at `GET /api/v1/evaluations/results`. The frontend **Evaluations** view presents retrieval
+configurations, deterministic accuracy/latency, comparisons, and whether model-assisted grading was
+enabled. It never calculates or substitutes missing scores in the browser. Refresh the application
+after writing a new report; reports are operational artifacts and the API is read-only.

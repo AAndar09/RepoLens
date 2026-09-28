@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from typing import Any, Protocol
 
 from qdrant_client import QdrantClient, models
-from qdrant_client.http.exceptions import UnexpectedResponse
+from qdrant_client.http.exceptions import ResponseHandlingException, UnexpectedResponse
 
 from app.config import Settings
 
@@ -48,6 +48,12 @@ class QdrantVectorStore:
     def __init__(self, settings: Settings) -> None:
         self.client = QdrantClient(url=settings.qdrant_url, api_key=settings.qdrant_api_key)
 
+    def health_check(self) -> None:
+        try:
+            self.client.get_collections()
+        except (ResponseHandlingException, UnexpectedResponse, OSError) as exc:
+            raise VectorStoreError("Unable to reach Qdrant") from exc
+
     @staticmethod
     def _snapshot_filter(
         snapshot_id: uuid.UUID,
@@ -83,7 +89,7 @@ class QdrantVectorStore:
                         distance=models.Distance.COSINE,
                     ),
                 )
-        except (UnexpectedResponse, OSError) as exc:
+        except (ResponseHandlingException, UnexpectedResponse, OSError) as exc:
             raise VectorStoreError("Unable to prepare the Qdrant collection") from exc
 
     def replace_snapshot(
@@ -107,7 +113,7 @@ class QdrantVectorStore:
                     ],
                     wait=True,
                 )
-        except (UnexpectedResponse, OSError) as exc:
+        except (ResponseHandlingException, UnexpectedResponse, OSError) as exc:
             raise VectorStoreError("Unable to write vectors to Qdrant") from exc
 
     def search(
@@ -134,7 +140,7 @@ class QdrantVectorStore:
                 with_payload=False,
                 with_vectors=False,
             )
-        except (UnexpectedResponse, OSError) as exc:
+        except (ResponseHandlingException, UnexpectedResponse, OSError) as exc:
             raise VectorStoreError("Unable to search Qdrant") from exc
         return [
             VectorHit(id=uuid.UUID(str(point.id)), score=float(point.score))

@@ -176,12 +176,15 @@ class RuleBasedQueryClassifier:
                 )
 
         logger.info(
-            "routing_decision router=%s category=%s strategy=%s confidence=%.2f fallback=%s",
-            decision.router,
-            decision.category,
-            decision.strategy,
-            decision.confidence,
-            decision.fallback_applied,
+            "routing_decision",
+            extra={
+                "event": "routing_decision",
+                "router": decision.router,
+                "category": decision.category,
+                "strategy": decision.strategy,
+                "confidence": decision.confidence,
+                "fallback": decision.fallback_applied,
+            },
         )
         return decision
 

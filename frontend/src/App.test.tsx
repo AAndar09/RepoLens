@@ -26,6 +26,9 @@ const snapshot = {
   parsed_file_count: 41,
   malformed_file_count: 1,
   skipped_file_count: 2,
+  reused_file_count: 0,
+  processed_file_count: 42,
+  removed_file_count: 0,
   symbol_count: 180,
   import_count: 75,
   total_bytes: 123456,
@@ -36,12 +39,20 @@ const snapshot = {
 const json = (body: unknown, status = 200) =>
   Promise.resolve(new Response(JSON.stringify(body), { status }))
 
-function mockApi() {
+function mockApi(evaluations: unknown[] = []) {
   return vi.spyOn(globalThis, 'fetch').mockImplementation((input, init) => {
     const url = String(input)
-    if (url.endsWith('/health')) return json({ status: 'ok', database: 'ok' })
+    if (url.endsWith('/health/ready')) return json({ status: 'ok', database: 'ok', vector_database: 'ok' })
+    if (url.endsWith('/evaluations/results')) return json(evaluations)
     if (url.endsWith('/repositories') && init?.method === 'POST') return json(repository, 201)
-    if (url.endsWith('/ingestions')) return json(snapshot)
+    if (url.endsWith(`/repositories/${repository.id}`)) return json(repository)
+    if (url.endsWith('/ingestion-jobs') || url.endsWith('/ingestion-jobs/job-id')) return json({
+      id: 'job-id', repository_id: repository.id, snapshot_id: snapshot.id,
+      status: 'succeeded', attempt_count: 1, error_message: null,
+      created_at: snapshot.created_at, started_at: snapshot.created_at,
+      completed_at: snapshot.completed_at,
+    }, 202)
+    if (url.endsWith(`/repositories/${repository.id}/snapshots`)) return json([snapshot])
     if (url.endsWith('/retrieval-index')) return json({
       id: 'index-id', snapshot_id: snapshot.id, status: 'ready', embedding_provider: 'hashing',
       embedding_dimensions: 384, collection_name: 'code', unit_count: 180,
@@ -151,5 +162,52 @@ describe('App', () => {
     )
     await user.click(screen.getByRole('button', { name: /developer trace/ }))
     expect(screen.getByText(/gemini · gemini-3.8-flash/)).toBeInTheDocument()
+  })
+
+  it('resumes a saved in-progress ingestion job', async () => {
+    mockApi()
+    localStorage.setItem('repolens.workspace', JSON.stringify({
+      repositoryId: repository.id, jobId: 'job-id',
+    }))
+    render(<App />)
+
+    expect(await screen.findByRole('heading', { name: 'openai/openai-python' })).toBeInTheDocument()
+    expect(JSON.parse(localStorage.getItem('repolens.workspace')!)).toEqual({
+      repositoryId: repository.id, snapshotId: snapshot.id,
+    })
+  })
+
+  it('shows generated evaluation metrics', async () => {
+    const evaluation = {
+      generated_at: '2026-09-28T00:00:00Z', dataset_id: 'sampleproject.python.v1',
+      dataset_sha256: 'abc', embedding_provider: 'hashing', embedding_dimensions: 384,
+      configurations: ['lexical', 'hybrid'], k_values: [5],
+      retrieval_summaries: [{
+        configuration: 'hybrid', case_count: 3,
+        mean_recall_at_k: { '5': 1 }, mean_citation_correctness_at_k: { '5': 1 },
+        latency: { sample_count: 3, mean_ms: 4.2, median_ms: 4, p95_ms: 5 },
+      }],
+      retrieval_comparisons: [],
+      routing_category: { measured_cases: 3, accuracy: 1, latency: null },
+      routing_strategy: { measured_cases: 3, accuracy: 1, latency: null },
+      symbol_lookup: { measured_cases: 1, accuracy: 1, latency: null },
+      tool_selection: { measured_cases: 0, accuracy: null, latency: null },
+      unsupported_configurations: {},
+      model_assisted_metrics: { enabled: false, metrics: {}, note: 'Not enabled.' },
+    }
+    mockApi([evaluation])
+    localStorage.setItem('repolens.workspace', JSON.stringify({
+      repositoryId: repository.id, snapshotId: snapshot.id,
+    }))
+    const user = userEvent.setup()
+    render(<App />)
+
+    await screen.findByRole('heading', { name: 'openai/openai-python' })
+    await user.click(screen.getByRole('button', { name: /Evaluations/ }))
+
+    expect(await screen.findByRole('heading', { name: 'Model evaluations' })).toBeInTheDocument()
+    expect(screen.getByText('sampleproject.python.v1')).toBeInTheDocument()
+    expect(screen.getAllByText('100.0%').length).toBeGreaterThan(0)
+    expect(screen.getByText('not measured')).toBeInTheDocument()
   })
 })

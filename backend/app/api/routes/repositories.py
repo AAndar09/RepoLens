@@ -1,16 +1,18 @@
 import uuid
+from collections.abc import Callable
 from typing import Annotated
 from urllib.parse import quote, urlsplit
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import select
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.config import Settings, get_settings
 from app.database import get_session
 from app.models.code_symbol import CodeSymbol, SymbolKind
-from app.models.repository import Repository
+from app.models.ingestion_job import IngestionJob, IngestionJobStatus
+from app.models.repository import Repository, RepositoryStatus
 from app.models.retrieval import SnapshotRetrievalIndex
 from app.models.snapshot import RepositorySnapshot
 from app.models.source_file import SourceFile
@@ -35,6 +37,7 @@ from app.schemas.ingestion import (
     SourceFileResponse,
     SymbolResponse,
 )
+from app.schemas.jobs import IngestionJobResponse
 from app.schemas.repository import RepositoryResponse, RepositorySubmission
 from app.schemas.retrieval import (
     EvidenceResponse,
@@ -52,8 +55,14 @@ from app.services.ingestion import (
     RepositoryAcquirer,
     RepositoryIngestionService,
 )
+from app.services.ingestion_jobs import run_ingestion_job
 
 router = APIRouter(prefix="/repositories", tags=["repositories"])
+JobRunner = Callable[[uuid.UUID, Settings], None]
+
+
+def get_ingestion_job_runner() -> JobRunner:
+    return run_ingestion_job
 
 
 def get_repository_acquirer(
@@ -145,7 +154,7 @@ def get_repository(
     return _repository_or_404(session, repository_id)
 
 
-@router.post("/{repository_id}/ingestions", response_model=SnapshotResponse)
+@router.post("/{repository_id}/ingestions", response_model=SnapshotResponse, deprecated=True)
 def ingest_repository(
     repository_id: uuid.UUID,
     session: Annotated[Session, Depends(get_session)],
@@ -163,6 +172,78 @@ def ingest_repository(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=f"Repository could not be acquired: {exc}",
         ) from exc
+
+
+@router.post(
+    "/{repository_id}/ingestion-jobs",
+    response_model=IngestionJobResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+def create_ingestion_job(
+    repository_id: uuid.UUID,
+    background_tasks: BackgroundTasks,
+    session: Annotated[Session, Depends(get_session)],
+    settings: Annotated[Settings, Depends(get_settings)],
+    runner: Annotated[JobRunner, Depends(get_ingestion_job_runner)],
+) -> IngestionJob:
+    repository = _repository_or_404(session, repository_id)
+    active = session.scalar(
+        select(IngestionJob)
+        .where(
+            IngestionJob.repository_id == repository_id,
+            IngestionJob.status.in_(
+                [IngestionJobStatus.QUEUED, IngestionJobStatus.RUNNING]
+            ),
+        )
+        .order_by(IngestionJob.created_at.desc())
+        .limit(1)
+    )
+    if active is not None:
+        return active
+    queued_count = session.scalar(
+        select(func.count())
+        .select_from(IngestionJob)
+        .where(
+            IngestionJob.status.in_(
+                [IngestionJobStatus.QUEUED, IngestionJobStatus.RUNNING]
+            )
+        )
+    )
+    if (queued_count or 0) >= settings.ingestion_max_queued_jobs:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Ingestion queue is at capacity; retry later",
+            headers={"Retry-After": "60"},
+        )
+    job = IngestionJob(repository_id=repository_id)
+    repository.status = RepositoryStatus.INGESTING
+    repository.ingestion_error = None
+    session.add(job)
+    session.commit()
+    session.refresh(job)
+    background_tasks.add_task(runner, job.id, settings)
+    return job
+
+
+@router.get(
+    "/{repository_id}/ingestion-jobs/{job_id}",
+    response_model=IngestionJobResponse,
+)
+def get_ingestion_job(
+    repository_id: uuid.UUID,
+    job_id: uuid.UUID,
+    session: Annotated[Session, Depends(get_session)],
+) -> IngestionJob:
+    _repository_or_404(session, repository_id)
+    job = session.scalar(
+        select(IngestionJob).where(
+            IngestionJob.id == job_id,
+            IngestionJob.repository_id == repository_id,
+        )
+    )
+    if job is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ingestion job not found")
+    return job
 
 
 @router.get("/{repository_id}/snapshots", response_model=list[SnapshotResponse])

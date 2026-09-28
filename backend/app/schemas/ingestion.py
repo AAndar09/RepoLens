@@ -21,6 +21,9 @@ class SnapshotResponse(BaseModel):
     parsed_file_count: int
     malformed_file_count: int
     skipped_file_count: int
+    reused_file_count: int
+    processed_file_count: int
+    removed_file_count: int
     symbol_count: int
     import_count: int
     total_bytes: int

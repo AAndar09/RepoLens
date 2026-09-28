@@ -1,0 +1,91 @@
+name: repolens-production
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?Set POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER:?Set POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  qdrant:
+    image: qdrant/qdrant:v1.14.1
+    volumes:
+      - qdrant_data:/qdrant/storage
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: ./backend
+    environment:
+      REPOLENS_ENVIRONMENT: production
+      REPOLENS_DEBUG: "false"
+      REPOLENS_EXPOSE_API_DOCS: "false"
+      REPOLENS_DATABASE_URL: ${REPOLENS_DATABASE_URL:?Set REPOLENS_DATABASE_URL}
+      REPOLENS_QDRANT_URL: http://qdrant:6333
+      REPOLENS_CORS_ORIGINS: ${REPOLENS_CORS_ORIGINS:?Set REPOLENS_CORS_ORIGINS}
+      REPOLENS_ALLOWED_HOSTS: ${REPOLENS_ALLOWED_HOSTS:?Set REPOLENS_ALLOWED_HOSTS}
+      REPOLENS_TRUST_PROXY_HEADERS: "true"
+      REPOLENS_LLM_PROVIDER: ${REPOLENS_LLM_PROVIDER:?Set REPOLENS_LLM_PROVIDER}
+      REPOLENS_LLM_MODEL: ${REPOLENS_LLM_MODEL:?Set REPOLENS_LLM_MODEL}
+      REPOLENS_LLM_FALLBACK_PROVIDER: ${REPOLENS_LLM_FALLBACK_PROVIDER:-}
+      REPOLENS_LLM_FALLBACK_MODEL: ${REPOLENS_LLM_FALLBACK_MODEL:-}
+      REPOLENS_GEMINI_API_KEY: ${REPOLENS_GEMINI_API_KEY:-}
+      REPOLENS_GROQ_API_KEY: ${REPOLENS_GROQ_API_KEY:-}
+      REPOLENS_OPENROUTER_API_KEY: ${REPOLENS_OPENROUTER_API_KEY:-}
+      REPOLENS_RATE_LIMIT_ENABLED: "true"
+      REPOLENS_RATE_LIMIT_DEFAULT_REQUESTS: ${REPOLENS_RATE_LIMIT_DEFAULT_REQUESTS:-120}
+      REPOLENS_RATE_LIMIT_SUBMISSION_REQUESTS: ${REPOLENS_RATE_LIMIT_SUBMISSION_REQUESTS:-10}
+      REPOLENS_RATE_LIMIT_INGESTION_REQUESTS: ${REPOLENS_RATE_LIMIT_INGESTION_REQUESTS:-4}
+      REPOLENS_RATE_LIMIT_QUERY_REQUESTS: ${REPOLENS_RATE_LIMIT_QUERY_REQUESTS:-30}
+      REPOLENS_INGESTION_MAX_FILES: ${REPOLENS_INGESTION_MAX_FILES:-2500}
+      REPOLENS_INGESTION_MAX_TOTAL_BYTES: ${REPOLENS_INGESTION_MAX_TOTAL_BYTES:-25000000}
+      REPOLENS_INGESTION_MAX_FILE_BYTES: ${REPOLENS_INGESTION_MAX_FILE_BYTES:-1000000}
+      REPOLENS_INGESTION_MAX_CLONE_BYTES: ${REPOLENS_INGESTION_MAX_CLONE_BYTES:-250000000}
+      REPOLENS_INGESTION_CLONE_TIMEOUT_SECONDS: ${REPOLENS_INGESTION_CLONE_TIMEOUT_SECONDS:-120}
+      REPOLENS_INGESTION_MAX_CONCURRENT_JOBS: ${REPOLENS_INGESTION_MAX_CONCURRENT_JOBS:-2}
+      REPOLENS_INGESTION_MAX_QUEUED_JOBS: ${REPOLENS_INGESTION_MAX_QUEUED_JOBS:-100}
+      REPOLENS_EVALUATION_RESULTS_DIR: /app/evaluations/results
+    read_only: true
+    tmpfs:
+      - /tmp:size=512m,mode=1777
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      qdrant:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "python", "-c", "import os, urllib.request; request = urllib.request.Request('http://127.0.0.1:8000/api/v1/health/ready', headers={'Host': os.environ['REPOLENS_ALLOWED_HOSTS'].split(',')[0]}); urllib.request.urlopen(request)"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+
+  frontend:
+    build:
+      context: ./frontend
+      target: production
+      args:
+        VITE_API_BASE_URL: /api/v1
+    ports:
+      - "${REPOLENS_PUBLIC_PORT:-8080}:80"
+    read_only: true
+    tmpfs:
+      - /var/cache/nginx:size=32m
+      - /var/run:size=1m
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+  qdrant_data:

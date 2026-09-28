@@ -1,22 +1,24 @@
 # Architecture
 
-## Phase 9 system context
+## v1.0 system context
 
 RepoLens is a React application backed by FastAPI. PostgreSQL is the durable authority for
 repositories, immutable snapshots, extracted Python intelligence, retrieval units, and index
 lifecycle. Qdrant holds only vectors and is always queried with a snapshot payload filter.
 
 ```text
-Browser -> React/Vite (:5173) -> FastAPI /api/v1 (:8000) -> PostgreSQL (:5432)
-                                             |                  |
-                                             +-- safe Git clone  +-- Qdrant (:6333)
-                                             +-- AST extraction  +-- hybrid retrieval
+Browser -> React/Vite or Nginx -> FastAPI /api/v1 -> PostgreSQL
+                                      |                |
+                                      +-- job record   +-- Qdrant
+                                      +-- safe clone
+                                      +-- incremental AST/graph/retrieval indexing
 ```
 
 ## Ingestion and data model
 
-Ingestion shallow-clones a public repository with Git prompts, hooks, global/system config, and
-LFS smudging disabled. It records default branch and full commit SHA, applies configured source
+The frontend submits a durable ingestion job and polls it while bounded background processing
+shallow-clones a public repository with Git prompts, hooks, global/system config, LFS smudging,
+submodules, and local/ext transports disabled. It records default branch and full commit SHA, applies configured source
 limits, hashes/decodes accepted Python files, and uses `ast` to persist modules, classes,
 functions, methods, imports, and source ranges. Repository code is never executed.
 
@@ -24,6 +26,12 @@ functions, methods, imports, and source ranges. Repository code is never execute
 commit. `source_files`, `code_symbols`, and `source_imports` are snapshot-scoped intelligence.
 `snapshot_retrieval_indexes` records one retrieval lifecycle per snapshot, while `retrieval_units`
 retain bounded symbol-aware chunks, source metadata, and materialized lexical text.
+
+For a new commit, path plus SHA-256 equality reuses previously parsed file intelligence; changed or
+new files are parsed and removed paths are absent from the new snapshot. The graph and retrieval
+index are rebuilt for the new immutable snapshot. Reuse/processed/removed counters make this
+observable. `ingestion_jobs` retains lifecycle and retry diagnostics. Startup turns interrupted
+queued/running jobs into explicit failed jobs rather than guessing that work completed.
 
 ## Structural graph
 
@@ -131,7 +139,11 @@ The dedicated OSV integration queries exact package versions and persists both n
 
 ## Public frontend
 
-The static React/Vite application leads users through repository submission, synchronous ingestion, and retrieval indexing before opening a snapshot workspace. The current repository, branch, and immutable commit remain visible across overview, investigation, source exploration, structural graph, dependency, and security views. AI explanations are visually separated from commit-pinned evidence and optional tool traces.
+The static React/Vite application leads users through repository submission and pollable background
+ingestion before opening a snapshot workspace. The current repository, branch, and immutable commit
+remain visible across overview, investigation, source exploration, structural graph, dependency,
+security, and evaluation views. AI explanations are visually separated from commit-pinned evidence
+and optional tool traces. Evaluation results are read-only summaries of actual versioned reports.
 
 Only repository/snapshot identifiers are retained in browser local storage for refresh recovery. Source, findings, and AI responses are reloaded from the backend and are not persisted by the frontend. Independent workspace requests are failure-isolated so an unavailable retrieval or graph service does not hide otherwise usable snapshot intelligence.
 
@@ -152,4 +164,15 @@ Generative settings are `REPOLENS_LLM_PROVIDER`, `REPOLENS_LLM_MODEL`,
 OpenRouter additionally accepts an optional site URL, and Ollama uses `REPOLENS_OLLAMA_URL`.
 Neither keys nor provider selection are exposed through Vite settings or browser responses.
 
-Background jobs, private repositories, non-Python manifests, dependency resolution/lockfile solving, reachability analysis, conversation memory, and unrestricted agent tools remain out of scope.
+## Production boundary
+
+Request middleware adds request IDs, structured completion logs, body bounds, route-specific
+per-process rate limits, security/cache headers, trusted hosts, and consistent error envelopes.
+Liveness is process-only; readiness verifies PostgreSQL and Qdrant. Production configuration fails
+closed on development database/CORS/Host defaults. The Nginx image serves immutable static assets
+and proxies `/api` on the same origin. PostgreSQL is authoritative; Qdrant is reconstructible derived
+state.
+
+Distributed job workers, multi-replica dispatch, private repositories, non-Python manifests,
+dependency resolution/lockfile solving, reachability analysis, conversation memory, authentication,
+and unrestricted agent tools remain out of scope.

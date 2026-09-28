@@ -164,6 +164,52 @@ def test_oversized_file_is_skipped(session_factory: sessionmaker[Session], tmp_p
         assert session.scalar(select(SourceFile.path)) == "small.py"
 
 
+def test_changed_snapshot_reuses_unchanged_files_and_removes_stale_intelligence(
+    session_factory: sessionmaker[Session], tmp_path: Path
+) -> None:
+    create_checkout(tmp_path)
+    settings = Settings(_env_file=None)
+
+    with session_factory() as session:
+        repository = create_repository(session)
+        first = RepositoryIngestionService(
+            session,
+            settings,
+            FakeAcquirer(tmp_path, commit_sha="a" * 40),
+        ).ingest(repository)
+        unchanged_hash = next(
+            item.sha256 for item in first.files if item.path == "package/__init__.py"
+        )
+
+        (tmp_path / "package" / "service.py").write_text(
+            "class Greeter:\n    def greet(self):\n        return 'changed'\n",
+            encoding="utf-8",
+        )
+        (tmp_path / "broken.py").unlink()
+        (tmp_path / "new.py").write_text("def added():\n    return True\n", encoding="utf-8")
+
+        second = RepositoryIngestionService(
+            session,
+            settings,
+            FakeAcquirer(tmp_path, commit_sha="b" * 40),
+        ).ingest(repository)
+
+        assert second.id != first.id
+        assert second.reused_file_count == 1
+        assert second.processed_file_count == 2
+        assert second.removed_file_count == 1
+        assert {item.path for item in second.files} == {
+            "new.py",
+            "package/__init__.py",
+            "package/service.py",
+        }
+        reused = next(item for item in second.files if item.path == "package/__init__.py")
+        assert reused.sha256 == unchanged_hash
+        assert {item.qualified_name for item in reused.symbols} == {
+            "package",
+        }
+
+
 def test_total_source_byte_limit_fails_ingestion(
     session_factory: sessionmaker[Session], tmp_path: Path
 ) -> None:
