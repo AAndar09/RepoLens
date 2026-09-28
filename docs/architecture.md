@@ -1,6 +1,6 @@
 # Architecture
 
-## Phase 8 system context
+## Phase 9 system context
 
 RepoLens is a React application backed by FastAPI. PostgreSQL is the durable authority for
 repositories, immutable snapshots, extracted Python intelligence, retrieval units, and index
@@ -95,6 +95,19 @@ Before a routed query reaches retrieval or the investigation agent, a determinis
 
 The response and application log include category, route, confidence, and fallback status. Questions with no unambiguous deterministic match use full investigation. The labelled evaluation dataset measures category and route accuracy.
 
+## Evaluation
+
+`app/evaluation` loads strictly validated, versioned JSON datasets tied to full Git commit SHAs and
+resolves only matching ready snapshots. The CLI calls the production retriever, deterministic
+router, and controlled symbol lookup tool. It never substitutes live branch state. Reports retain
+the dataset content hash, retrieval/embedding configuration, raw ranked evidence, deterministic
+metrics, comparison deltas, and latency summaries.
+
+Semantic-only and hybrid retrieval are directly comparable. Structural graph lookup remains a
+separate agent tool, and no production reranker exists, so both hybrid-plus-structural ranking and
+reranked experiments are reported as unsupported rather than simulated. Model-assisted metrics
+have a separate report section and are disabled by default.
+
 ## Dependency and vulnerability intelligence
 
 Ingestion independently detects bounded `requirements*.txt` files and PEP 621 dependency tables in `pyproject.toml`. Valid PEP 508 declarations are snapshot-scoped with manifest path, line, scope, marker, declared constraint, normalized PyPI name, and an exact version only when deterministically pinned. Open constraints remain visible but are not treated as installed versions.
@@ -110,6 +123,7 @@ The dedicated OSV integration queries exact package versions and persists both n
 - `app/graph`: deterministic import resolution and bounded structural traversal.
 - `app/agent`: model abstraction, controlled tools, and LangGraph investigation workflow.
 - `app/routing`: deterministic route policy, direct controlled execution, and evaluation dataset.
+- `app/evaluation`: dataset contracts, deterministic metrics, benchmark runner, and JSON export.
 - `app/dependencies`: manifest extraction, OSV integration, and persisted vulnerability service.
 - `app/models` and `migrations`: relational schema authority.
 - `frontend/src/App.tsx`: snapshot-scoped public workspace and capability views.

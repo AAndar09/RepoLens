@@ -28,6 +28,9 @@ dev = [
   "ruff>=0.9,<1",
 ]
 
+[project.scripts]
+repolens-evaluate = "app.evaluation.cli:main"
+
 [tool.hatch.build.targets.wheel]
 packages = ["app"]
 

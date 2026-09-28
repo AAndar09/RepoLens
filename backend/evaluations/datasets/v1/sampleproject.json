@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "dataset_id": "sampleproject.python.v1",
+  "description": "Deterministic Python retrieval and routing cases for PyPA sampleproject.",
+  "repositories": [
+    {
+      "repository": "https://github.com/pypa/sampleproject",
+      "commit": "621e4974ca25ce531773def586ba3ed8e736b3fc",
+      "cases": [
+        {
+          "id": "add-one-implementation",
+          "question": "How is add_one implemented?",
+          "question_type": "implementation",
+          "expected_files": ["src/sample/simple.py"],
+          "expected_symbols": ["src.sample.simple.add_one"],
+          "expected_routing": {
+            "category": "implementation",
+            "strategy": "hybrid_retrieval"
+          },
+          "expected_tools": ["search_code"]
+        },
+        {
+          "id": "add-one-symbol",
+          "question": "Where is `add_one` defined?",
+          "question_type": "symbol_lookup",
+          "expected_files": ["src/sample/simple.py"],
+          "expected_symbols": ["src.sample.simple.add_one"],
+          "symbol_query": "add_one",
+          "expected_routing": {
+            "category": "symbol_lookup",
+            "strategy": "direct_symbol_lookup"
+          },
+          "expected_tools": ["lookup_symbol"]
+        },
+        {
+          "id": "add-one-test",
+          "question": "Which test verifies add_one?",
+          "question_type": "test_location",
+          "expected_files": ["tests/test_simple.py"],
+          "expected_symbols": ["tests.test_simple.TestSimple.test_add_one"],
+          "symbol_query": "test_add_one",
+          "expected_routing": {
+            "category": "unknown",
+            "strategy": "full_investigation"
+          }
+        },
+        {
+          "id": "indexed-commit",
+          "question": "What commit was indexed?",
+          "question_type": "repository_metadata",
+          "retrieval": false,
+          "expected_routing": {
+            "category": "repository_metadata",
+            "strategy": "repository_metadata"
+          },
+          "expected_tools": ["repository_metadata"]
+        }
+      ]
+    }
+  ]
+}
